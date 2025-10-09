@@ -1,0 +1,119 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int        @id @default(autoincrement())
+  email     String     @unique
+  password  String
+  fullName  String
+  isActive  Boolean    @default(true)
+  roles     UserRole[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+model Role {
+  id              Int              @id @default(autoincrement())
+  name            String           @unique
+  description     String?
+  users           UserRole[]
+  rolePermissions RolePermission[]
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+}
+
+model Permission {
+  id              Int              @id @default(autoincrement())
+  name            String           @unique
+  description     String?
+  rolePermissions RolePermission[]
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+}
+
+model UserRole {
+  user      User     @relation(fields: [userId], references: [id])
+  userId    Int
+  role      Role     @relation(fields: [roleId], references: [id])
+  roleId    Int
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@id([userId, roleId])
+}
+
+model RolePermission {
+  role         Role       @relation(fields: [roleId], references: [id])
+  roleId       Int
+  permission   Permission @relation(fields: [permissionId], references: [id])
+  permissionId Int
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+
+  @@id([roleId, permissionId])
+}
+
+model LookupData {
+  id        String   @id @default(uuid())
+  uid       String?  @map("uid")
+  phone     String?  @map("phone") 
+  address   String?  @map("address")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([uid])
+  @@index([phone])
+  @@index([address])
+  @@unique([uid, phone], name: "unique_uid_phone")
+}
+
+model JobStatus {
+  id          String   @id @default(uuid())
+  jobType     String   @map("job_type")
+  status      String   // pending, processing, completed, failed
+  fileName    String?  @map("file_name")
+  resultPath  String?  @map("result_path")
+  errorMsg    String?  @map("error_msg")
+  totalRows   Int?     @map("total_rows")
+  processedRows Int?   @map("processed_rows")
+  createdBy   Int      @map("created_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("job_status")
+}
+
+model UploadSession {
+  id            String    @id @default(uuid())
+  fileName      String    @map("file_name")
+  totalChunks   Int       @map("total_chunks")
+  totalSize     Int       @default(0) @map("total_size")
+  uploadedChunks Int      @default(0) @map("uploaded_chunks")
+  status        String    @default("pending") // pending, uploading, merging, completed, failed
+  userId        Int       @default(1) @map("user_id")
+  metadata      String?   // JSON string for additional data like checksum
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  expiresAt     DateTime  @map("expires_at")
+  chunks        ChunkInfo[]
+}
+
+model ChunkInfo {
+  id            String        @id @default(uuid())
+  sessionId     String        @map("session_id")
+  chunkIndex    Int           @map("chunk_index")
+  chunkSize     Int           @map("chunk_size")
+  checksum      String        @default("") // MD5 or SHA checksum of chunk
+  uploadedAt    DateTime      @default(now()) @map("uploaded_at")
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+  session       UploadSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, chunkIndex])
+}
