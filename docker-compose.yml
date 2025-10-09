@@ -58,6 +58,8 @@ services:
     networks:
       - app-network
     restart: unless-stopped
+    # Fix volume permissions
+    user: "1001:65533"
     healthcheck:
       test: ["CMD", "node", "healthcheck.js"]
       interval: 30s

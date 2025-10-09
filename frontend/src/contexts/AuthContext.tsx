@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
+import { apiClient } from '@/utils/api'
 
 interface UserRole {
   role: {
@@ -77,20 +78,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     initAuth()
-  }, [])
+    
+    // Setup API client logout callback
+    apiClient.setLogoutCallback(() => {
+      setUser(null)
+      setToken(null)
+      router.push('/login')
+    })
+  }, [router])
 
   // Hàm đăng nhập
   const login = async (email: string, password: string) => {
     try {
       setIsLoading(true)
       
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
-      })
+      const response = await apiClient.post('/api/auth/login', 
+        { email, password }, 
+        { skipAuth: true }
+      )
 
       const data = await response.json()
 
@@ -173,24 +178,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!token) return
 
     try {
-      const response = await fetch('/api/auth/me', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      })
+      const response = await apiClient.get('/api/auth/me')
 
       if (response.ok) {
         const data = await response.json()
         setUser(data.user)
         localStorage.setItem('user', JSON.stringify(data.user))
-      } else {
-        // Token không hợp lệ, đăng xuất
-        logout()
       }
+      // 401 handling is automatically done by apiClient
     } catch (error) {
       console.error('Error refreshing user:', error)
+      // If error is not 401 (which is handled by apiClient), 
+      // we might want to handle other errors here
     }
-  }, [token, logout])
+  }, [token])
 
   // Auto refresh user info khi có token
   useEffect(() => {

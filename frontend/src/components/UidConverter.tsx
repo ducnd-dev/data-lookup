@@ -25,6 +25,10 @@ interface LookupApiResult {
   found: boolean
 }
 
+type ExcelCellValue = string | number | null | undefined
+type ExcelRow = ExcelCellValue[]
+type ExcelData = ExcelRow[]
+
 export default function UidConverter() {
   const { user, logout } = useAuth()
   const [inputType, setInputType] = useState<'single' | 'multiple'>('single')
@@ -48,7 +52,7 @@ export default function UidConverter() {
     try {
       const uids = inputType === 'single' 
         ? [singleUid] 
-        : multipleUids.split('\n').filter(uid => uid.trim())
+        : multipleUids.split('\n').filter((uid: string) => uid.trim())
       
       if (uids.length === 0) {
         setResults([])
@@ -63,7 +67,7 @@ export default function UidConverter() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
         },
-        body: JSON.stringify({ uids: uids.map(uid => uid.trim()) }),
+        body: JSON.stringify({ uids: uids.map((uid: string) => uid.trim()) }),
       })
       console.log('Lookup response:', response)
 
@@ -112,7 +116,7 @@ export default function UidConverter() {
           
           if (jsonData.length > 0) {
             // Tìm index của cột "uid" từ header row
-            const headerRow = jsonData[0] as any[]
+            const headerRow = jsonData[0] as ExcelRow
             let uidColumnIndex = -1
             
             if (Array.isArray(headerRow)) {
@@ -127,7 +131,7 @@ export default function UidConverter() {
             }
             
             // Lấy dữ liệu từ cột đã xác định, bỏ qua header
-            jsonData.slice(1).forEach((row: any) => {
+            (jsonData.slice(1) as ExcelData).forEach((row) => {
               if (Array.isArray(row) && row[uidColumnIndex]) {
                 const cellValue = String(row[uidColumnIndex]).trim()
                 if (cellValue) {
