@@ -105,8 +105,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         localStorage.setItem('token', newToken)
         localStorage.setItem('user', JSON.stringify(newUser))
         
+        console.log('Login successful, user:', newUser)
         return { success: true }
       } else {
+        console.error('Login failed:', data)
         return { 
           success: false, 
           message: data.message || 'Đăng nhập thất bại' 

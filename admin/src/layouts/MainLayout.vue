@@ -4,21 +4,25 @@
       <n-message-provider>
         <n-dialog-provider>
           <n-notification-provider>
-            <div class="h-screen flex overflow-hidden bg-gray-50">
+            <n-layout class="h-screen" has-sider>
               <!-- Sidebar -->
-              <div class="flex-shrink-0 transition-all duration-300 ease-in-out" :class="collapsed ? 'w-0' : 'w-64'">
-                <n-layout-sider :width="250" :collapsed-width="0" :collapsed="collapsed" collapse-mode="width"
-                  :show-trigger="false" class="h-full">
-                  <AppSidebar />
-                </n-layout-sider>
-              </div>
+              <n-layout-sider
+                :width="250"
+                :collapsed-width="0"
+                :collapsed="collapsed"
+                collapse-mode="width"
+                :show-trigger="false"
+                class="h-full"
+              >
+                <AppSidebar />
+              </n-layout-sider>
 
               <!-- Main Content -->
-              <div class="flex-1 flex flex-col overflow-hidden">
+              <n-layout class="flex flex-col">
                 <!-- Header -->
                 <n-layout-header class="flex-shrink-0 border-b border-gray-200 bg-white shadow-sm z-10">
                   <div class="flex items-center justify-between w-full">
-                    <div class="flex items-center justify-between space-x-4">
+                    <div class="flex items-center justify-between gap-4 w-full">
                       <n-button text size="large" @click="collapsed = !collapsed" class="lg:hidden ml-4">
                         <template #icon>
                           <n-icon>
@@ -35,8 +39,8 @@
                 <n-layout-content class="flex-1 overflow-auto">
                   <router-view />
                 </n-layout-content>
-              </div>
-            </div>
+              </n-layout>
+            </n-layout>
           </n-notification-provider>
         </n-dialog-provider>
       </n-message-provider>

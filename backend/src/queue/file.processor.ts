@@ -64,8 +64,14 @@ export class FileProcessor {
     
     try {
       // Update job status to processing
-      await this.prisma.jobStatus.create({
-        data: {
+      await this.prisma.jobStatus.upsert({
+        where: { id: jobId },
+        update: {
+          status: 'processing',
+          processedRows: 0,
+          errorMsg: null,
+        },
+        create: {
           id: jobId,
           jobType: 'data_import',
           status: 'processing',
@@ -95,9 +101,9 @@ export class FileProcessor {
                          row.field_c || row.value_c || null;
           
           return {
-            uid,
-            phone,
-            address,
+            uid: uid ? String(uid).trim() : null,
+            phone: phone ? String(phone).trim() : null,
+            address: address ? String(address).trim() : null,
           };
         }).filter(item => item.uid || item.phone || item.address); // Only insert rows with at least one value
 
@@ -110,7 +116,10 @@ export class FileProcessor {
           // Build conditions for bulk check
           const uidPhonePairs = lookupData
             .filter(record => record.uid && record.phone)
-            .map(record => ({ uid: record.uid, phone: record.phone }));
+            .map(record => ({ 
+              uid: String(record.uid).trim(), 
+              phone: String(record.phone).trim() 
+            }));
           
           let existingRecords: any[] = [];
           if (uidPhonePairs.length > 0) {

@@ -48,11 +48,13 @@ export default function LoginPage() {
     setError('')
     try {
       const result = await login(formData.email, formData.password)
-      
-      if (!result.success) {
+      if (result.success) {
+        // After successful login, redirect to home page
+        console.log('Login successful, redirecting to home page')
+        router.push('/')
+      } else {
         setError(result.message || 'Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.')
       }
-      // useEffect sẽ tự động redirect khi isAuthenticated = true
     } catch (error) {
       console.error('Login error:', error)
       setError('Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.')
@@ -163,14 +165,14 @@ export default function LoginPage() {
             </form>
 
             {/* Divider */}
-            <div className="relative">
+            {/* <div className="relative">
               <div className="absolute inset-0 flex items-center">
                 <span className="w-full border-t" />
               </div>
               <div className="relative flex justify-center text-xs uppercase">
                 <span className="bg-white px-2 text-gray-500">Hoặc</span>
               </div>
-            </div>
+            </div> */}
 
             {/* Social Login */}
             {/* <div className="grid grid-cols-2 gap-4">

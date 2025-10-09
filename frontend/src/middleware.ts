@@ -8,19 +8,14 @@ export function middleware(request: NextRequest) {
   
   const { pathname } = request.nextUrl
   
-  // Lấy token từ cookie
-  const token = request.cookies.get('auth-token')?.value
-
-  // Nếu đang ở trang auth và đã đăng nhập, redirect về home
-  if (authRoutes.includes(pathname) && token) {
-    return NextResponse.redirect(new URL('/', request.url))
+  // Cho phép tất cả các route khác không cần kiểm tra authentication ở middleware level
+  // Authentication sẽ được xử lý ở client-side bằng AuthContext
+  if (!protectedRoutes.includes(pathname) && !authRoutes.includes(pathname)) {
+    return NextResponse.next()
   }
 
-  // Nếu đang ở trang protected và chưa đăng nhập, redirect về login
-  if (protectedRoutes.includes(pathname) && !token) {
-    return NextResponse.redirect(new URL('/login', request.url))
-  }
-
+  // Đối với protected routes và auth routes, chúng ta sẽ để client-side xử lý
+  // vì token được lưu trong localStorage, không phải cookies
   return NextResponse.next()
 }
 

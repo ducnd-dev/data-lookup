@@ -79,11 +79,30 @@ export class DataImportController {
       if (file.mimetype.includes('csv') || file.originalname.endsWith('.csv')) {
         console.log('📄 Parsing CSV...');
         try {
-          // For CSV, try raw text parsing first
-          const textContent = fileBuffer.toString('utf8');
-          console.log('   Text content preview:', textContent.substring(0, 200));
+          // For CSV, detect and fix encoding issues
+          let textContent = fileBuffer.toString('utf8');
+          console.log('   Original text preview:', textContent.substring(0, 200));
           
-          const workbook = XLSX.read(fileBuffer, { type: 'buffer' });
+          // If detected encoding issues, try different approaches
+          if (textContent.includes('Ã') || textContent.includes('\\x') || textContent.includes('â€')) {
+            console.log('   Detected encoding issues, trying to fix...');
+            
+            // Try latin1 first
+            const latin1Text = fileBuffer.toString('latin1');
+            console.log('   Latin1 preview:', latin1Text.substring(0, 200));
+            
+            // Use latin1 if it looks better
+            if (!latin1Text.includes('Ã') && latin1Text.length > 0) {
+              textContent = latin1Text;
+            }
+          }
+          
+          // Parse with XLSX
+          const workbook = XLSX.read(fileBuffer, { 
+            type: 'buffer',
+            raw: false,
+            cellDates: true 
+          });
           
           if (!workbook || !workbook.SheetNames || workbook.SheetNames.length === 0) {
             throw new Error('No valid sheets found in CSV file');
@@ -99,6 +118,40 @@ export class DataImportController {
           data = XLSX.utils.sheet_to_json(worksheet);
           console.log('   Parsed rows:', data.length);
           
+          // Fix encoding issues in CSV data
+          if (data.length > 0) {
+            console.log('   Sample CSV row before fix:', JSON.stringify(data[0], null, 2));
+            
+            data = data.map(row => {
+              const fixedRow = {};
+              Object.keys(row).forEach(key => {
+                let value = row[key];
+                if (typeof value === 'string') {
+                  // Fix common Vietnamese encoding issues
+                  value = value
+                    .replace(/Ã¡/g, 'á')
+                    .replace(/Ã©/g, 'é') 
+                    .replace(/Ã­/g, 'í')
+                    .replace(/Ã³/g, 'ó')
+                    .replace(/Ãº/g, 'ú')
+                    .replace(/Ã /g, 'à')
+                    .replace(/Ã¨/g, 'è')
+                    .replace(/Ã¬/g, 'ì')
+                    .replace(/Ã²/g, 'ò')
+                    .replace(/Ã¹/g, 'ù')
+                    .replace(/Ã¢/g, 'â')
+                    .replace(/Ãª/g, 'ê')
+                    .replace(/Ã´/g, 'ô')
+                    .replace(/Ã£/g, 'ã');
+                }
+                fixedRow[key] = value;
+              });
+              return fixedRow;
+            });
+            
+            console.log('   Sample CSV row after fix:', JSON.stringify(data[0], null, 2));
+          }
+
         } catch (csvError) {
           console.log('❌ CSV parsing failed:', csvError.message);
           throw new HttpException(`CSV parsing failed: ${csvError.message}`, HttpStatus.BAD_REQUEST);

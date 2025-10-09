@@ -17,7 +17,13 @@
 
     <!-- Navigation Menu -->
     <div class="flex-1 overflow-y-auto">
-      <n-menu :value="activeKey" :options="menuOptions" :indent="24" @update:value="handleMenuSelect" />
+      <n-menu
+        :key="menuKey"
+        :value="activeKey"
+        :options="menuOptions"
+        :indent="24"
+        @update:value="handleMenuSelect"
+      />
     </div>
 
     <!-- Footer/User Section -->
@@ -39,14 +45,24 @@ import {
   UserIcon
 } from '@/components/common/Icons.vue'
 import { usePermissions } from '@/composables/usePermissions'
+import { useAuthStore } from '@/stores/auth'
 import { ServerOutline as DatabaseOutline } from '@vicons/ionicons5'
 import type { MenuOption } from 'naive-ui'
-import { computed } from 'vue'
+import { computed, watchEffect, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 const router = useRouter()
 const route = useRoute()
+const authStore = useAuthStore()
 const { canUpload, canManageUsers, canManageRoles, hasAnyRole } = usePermissions()
+
+// Force re-render trigger
+const menuTrigger = ref(0)
+
+// Force re-render key when user changes
+const menuKey = computed(() => {
+  return `menu-${authStore.user?.id || 'guest'}-${menuTrigger.value}`
+})
 
 const activeKey = computed(() => {
   if (route.path === '/') {
@@ -91,6 +107,16 @@ const allMenuOptions: MenuOption[] = [
 // Filter menu options based on user permissions
 const menuOptions = computed(() => {
   const filteredOptions: MenuOption[] = []
+
+  // Debug: Log current user state
+  console.log('🔍 Menu rebuild - Auth state:', {
+    isAuthenticated: authStore.isAuthenticated,
+    user: authStore.user,
+    userRoles: authStore.user?.roles?.map(ur => ur.role?.name),
+    canUpload: canUpload.value,
+    canManageUsers: canManageUsers.value,
+    canManageRoles: canManageRoles.value
+  })
 
   // Always show Data Lookup for all users
   const dataLookupOption = allMenuOptions.find(option => option.key === 'lookup')
@@ -139,6 +165,15 @@ const menuOptions = computed(() => {
   }
 
   return filteredOptions
+})
+
+// Force reactivity when auth state changes
+watchEffect(() => {
+  if (authStore.user) {
+    console.log('👤 User changed, menu should update:', authStore.user.fullName)
+    // Force menu re-render
+    menuTrigger.value++
+  }
 })
 
 const handleMenuSelect = (key: string) => {

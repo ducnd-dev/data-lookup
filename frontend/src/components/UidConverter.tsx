@@ -14,12 +14,15 @@ interface ConversionResult {
   uid: string
   phone: string
   status: string
+  address?: string
+  found: boolean
 }
 
 interface LookupApiResult {
   uid: string
   phone?: string
   address?: string
+  found: boolean
 }
 
 export default function UidConverter() {
@@ -62,6 +65,7 @@ export default function UidConverter() {
         },
         body: JSON.stringify({ uids: uids.map(uid => uid.trim()) }),
       })
+      console.log('Lookup response:', response)
 
       if (response.ok) {
         const data = await response.json()
@@ -71,40 +75,15 @@ export default function UidConverter() {
           stt: index + 1,
           uid: result.uid || uids[index],
           phone: result.phone || '',
-          status: result.phone ? 'Tìm thấy' : 'Không tìm thấy'
+          status: result.phone ? 'Tìm thấy' : 'Không tìm thấy',
+          address: result.address || '',
+          found: result.found
         }))
         
         setResults(convertedResults)
-      } else {
-        const errorData = await response.json()
-        console.error('Lookup error:', errorData.message)
-        
-        // Fallback với dữ liệu mock nếu API lỗi
-        const mockResults: ConversionResult[] = uids.map((uid, index) => ({
-          stt: index + 1,
-          uid: uid.trim(),
-          phone: uid.trim() ? `+84${Math.floor(Math.random() * 900000000 + 100000000)}` : '',
-          status: uid.trim() ? 'Không tìm thấy' : ''
-        }))
-        
-        setResults(mockResults)
       }
     } catch (error) {
       console.error('Convert error:', error)
-      
-      // Fallback với dữ liệu mock nếu có lỗi
-      const uids = inputType === 'single' 
-        ? [singleUid] 
-        : multipleUids.split('\n').filter(uid => uid.trim())
-      
-      const mockResults: ConversionResult[] = uids.map((uid, index) => ({
-        stt: index + 1,
-        uid: uid.trim(),
-        phone: uid.trim() ? `+84${Math.floor(Math.random() * 900000000 + 100000000)}` : '',
-        status: uid.trim() ? 'Không tìm thấy' : ''
-      }))
-      
-      setResults(mockResults)
     } finally {
       setIsLoading(false)
     }
@@ -113,39 +92,126 @@ export default function UidConverter() {
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (file) {
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        const content = e.target?.result as string
-        setMultipleUids(content)
-        setInputType('multiple')
+      const fileExtension = file.name.split('.').pop()?.toLowerCase()
+      
+      if (fileExtension === 'xlsx' || fileExtension === 'xls') {
+        // Xử lý file Excel
+        const reader = new FileReader()
+        reader.onload = async (e) => {
+          const arrayBuffer = e.target?.result as ArrayBuffer
+          
+          // Import xlsx library dynamically
+          const XLSX = await import('xlsx')
+          const workbook = XLSX.read(arrayBuffer, { type: 'array' })
+          const sheetName = workbook.SheetNames[0]
+          const worksheet = workbook.Sheets[sheetName]
+          const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 })
+          
+          // Lấy dữ liệu từ cột có header "uid"
+          const uids: string[] = []
+          
+          if (jsonData.length > 0) {
+            // Tìm index của cột "uid" từ header row
+            const headerRow = jsonData[0] as any[]
+            let uidColumnIndex = -1
+            
+            if (Array.isArray(headerRow)) {
+              uidColumnIndex = headerRow.findIndex(cell => 
+                String(cell).toLowerCase().trim() === 'uid'
+              )
+            }
+            
+            // Nếu không tìm thấy cột "uid", mặc định dùng cột đầu tiên
+            if (uidColumnIndex === -1) {
+              uidColumnIndex = 0
+            }
+            
+            // Lấy dữ liệu từ cột đã xác định, bỏ qua header
+            jsonData.slice(1).forEach((row: any) => {
+              if (Array.isArray(row) && row[uidColumnIndex]) {
+                const cellValue = String(row[uidColumnIndex]).trim()
+                if (cellValue) {
+                  uids.push(cellValue)
+                }
+              }
+            })
+          }
+          
+          setMultipleUids(uids.join('\n'))
+          setInputType('multiple')
+        }
+        reader.readAsArrayBuffer(file)
+      } else {
+        // Xử lý file text (.txt, .csv)
+        const reader = new FileReader()
+        reader.onload = (e) => {
+          let content = e.target?.result as string
+          
+          // Nếu là CSV, tìm và chỉ lấy cột "uid"
+          if (fileExtension === 'csv') {
+            const lines = content.split('\n')
+            const uids: string[] = []
+            
+            if (lines.length > 0) {
+              // Tìm index của cột "uid" từ header row
+              const headerLine = lines[0]
+              const headers = headerLine.split(',').map(h => h.trim().toLowerCase())
+              let uidColumnIndex = headers.findIndex(header => header === 'uid')
+              
+              // Nếu không tìm thấy cột "uid", mặc định dùng cột đầu tiên
+              if (uidColumnIndex === -1) {
+                uidColumnIndex = 0
+              }
+              
+              // Lấy dữ liệu từ cột đã xác định, bỏ qua header
+              lines.slice(1).forEach(line => {
+                const columns = line.split(',')
+                const cellValue = columns[uidColumnIndex]?.trim()
+                if (cellValue) {
+                  uids.push(cellValue)
+                }
+              })
+              
+              content = uids.join('\n')
+            }
+          }
+          
+          setMultipleUids(content)
+          setInputType('multiple')
+        }
+        reader.readAsText(file)
       }
-      reader.readAsText(file)
     }
   }
 
-  const downloadTemplate = () => {
-    const template = `100000123456789
-100000987654321
-100000555666777
-100000111222333`
+  const downloadTemplate = async () => {
+    // Import xlsx library dynamically
+    const XLSX = await import('xlsx')
     
-    const blob = new Blob([template], { type: 'text/plain' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'template-uid-2025-10-07T14-45-07.xlsx'
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
+    // Tạo dữ liệu template
+    const templateData = [
+      ['uid'],  // Header
+      ['100000123456789'],
+      ['100000987654321'],
+      ['100000555666777'],
+      ['100000111222333']
+    ]
+    
+    // Tạo worksheet và workbook
+    const worksheet = XLSX.utils.aoa_to_sheet(templateData)
+    const workbook = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'UIDs')
+    
+    // Xuất file Excel
+    XLSX.writeFile(workbook, 'template-uid-2025-10-07T14-45-07.xlsx')
   }
 
   const exportResults = () => {
     if (results.length === 0) return
     
     const csvContent = [
-      'STT,UID,Số điện thoại,Trạng thái',
-      ...results.map(result => `${result.stt},${result.uid},${result.phone},${result.status}`)
+      'STT,UID,Số điện thoại',
+      ...results.map(result => `${result.stt},${result.uid},${result.phone}`)
     ].join('\n')
     
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
@@ -295,7 +361,7 @@ export default function UidConverter() {
                           <FileText className="w-4 h-4 mr-1" />
                           template-uid-2025-10-07T14-45-07.xlsx
                         </div>
-                        <div className="text-xs text-gray-500 mt-1">✓ Đã lưu 4 UID từ file</div>
+                        <div className="text-xs text-gray-500 mt-1">✓ Đã lưu {results.length} UID từ file</div>
                       </div>
                     </div>
                   )}
@@ -330,7 +396,7 @@ export default function UidConverter() {
                       </Button>
                     </div>
                   </div>
-                  <p className="text-sm text-gray-600">Đã chuyển đổi 4 UID thành công</p>
+                  <p className="text-sm text-gray-600">Đã chuyển đổi {results.length} UID thành công</p>
                 </CardHeader>
                 <CardContent>
                   <div className="border rounded-lg">
@@ -340,7 +406,9 @@ export default function UidConverter() {
                           <TableHead className="w-16">STT</TableHead>
                           <TableHead>UID</TableHead>
                           <TableHead>Số điện thoại</TableHead>
+                          <TableHead>Địa chỉ</TableHead>
                           <TableHead>Trạng thái</TableHead>
+                          
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -349,9 +417,10 @@ export default function UidConverter() {
                             <TableCell>{result.stt}</TableCell>
                             <TableCell className="font-mono text-sm">{result.uid}</TableCell>
                             <TableCell>{result.phone || '–'}</TableCell>
+                            <TableCell>{result.address || '–'}</TableCell>
                             <TableCell>
                               <span className="inline-flex items-center px-2 py-1 rounded text-xs bg-gray-100 text-gray-600">
-                                ⭕ Không tìm thấy
+                                {result.found ? '✅ Tìm thấy' : '❌ Không tìm thấy'}
                               </span>
                             </TableCell>
                           </TableRow>
@@ -361,12 +430,12 @@ export default function UidConverter() {
                   </div>
                   
                   <div className="mt-3 text-sm text-gray-500">
-                    Đã nhập: 4 UID • ❌ Xóa lịch sử
+                    Đã nhập: {results.length} UID • ❌ Xóa lịch sử
                   </div>
                   
                   <div className="mt-4 text-center">
                     <span className="inline-flex items-center px-3 py-1 rounded bg-blue-50 text-blue-700 text-sm">
-                      🔄 Chuyển đổi (4)
+                      🔄 Chuyển đổi ({results.length})
                     </span>
                   </div>
                 </CardContent>

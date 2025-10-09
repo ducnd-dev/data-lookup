@@ -59,7 +59,7 @@
           </n-form>
 
           <!-- Demo Accounts -->
-          
+
         </div>
       </div>
 
@@ -166,7 +166,15 @@ async function handleLogin() {
     if (result.success) {
       loadingBar.finish()
       message.success('Login successful!')
-      await router.push('/')
+
+      // Add small delay to ensure auth state is fully updated
+      await new Promise(resolve => setTimeout(resolve, 200))
+
+      // Force a page reload to ensure all reactive state is updated
+      window.location.href = '/'
+
+      // Fallback router navigation
+      // await router.push('/')
     } else {
       loadingBar.error()
       message.error(result.error || 'Login failed')
