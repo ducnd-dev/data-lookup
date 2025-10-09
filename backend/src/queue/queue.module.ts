@@ -7,8 +7,8 @@ import { QueueService } from './queue.service';
   imports: [
     BullModule.forRoot({
       redis: {
-        host: 'localhost',
-        port: 6379,
+        host: process.env.REDIS_HOST || 'localhost',
+        port: Number(process.env.REDIS_PORT) || 6379,
         maxRetriesPerRequest: 3,
         enableOfflineQueue: true,
         connectTimeout: 10000,
