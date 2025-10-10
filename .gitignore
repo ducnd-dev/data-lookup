@@ -1,4 +1,4 @@
-# Dependencies
+¬# Dependencies
 **/node_modules
 **/dist
 **/build
@@ -75,3 +75,11 @@ Thumbs.db
 # Production data
 /data/
 /postgres-data/
+
+# Persistent volume data (created by setup-volumes.sh)
+data/postgres/*
+data/redis/*  
+data/uploads/*
+!data/postgres/.gitkeep
+!data/redis/.gitkeep
+!data/uploads/.gitkeep

@@ -137,6 +137,32 @@
             <n-input v-model:value="newRole.description" type="textarea" placeholder="Enter role description"
               :autosize="{ minRows: 3, maxRows: 6 }" />
           </n-form-item>
+
+          <n-form-item label="Permissions">
+            <div class="space-y-2 max-h-48 overflow-y-auto border rounded p-3">
+              <div v-if="permissionsLoading" class="text-center text-gray-500">
+                Loading permissions...
+              </div>
+              <div v-else-if="permissionsData?.data">
+                <n-checkbox-group v-model:value="selectedPermissions">
+                  <div class="grid grid-cols-1 gap-2">
+                    <n-checkbox
+                      v-for="permission in permissionsData.data"
+                      :key="permission.id"
+                      :value="permission.id"
+                      :label="permission.name"
+                    >
+                      <div class="flex flex-col">
+                        <span class="font-medium">{{ permission.name }}</span>
+                        <span class="text-xs text-gray-500">{{ permission.description }}</span>
+                      </div>
+                    </n-checkbox>
+                  </div>
+                </n-checkbox-group>
+              </div>
+            </div>
+          </n-form-item>
+
           <!-- <n-form-item label="Status" path="status">
             <n-switch v-model:value="newRole.active">
               <template #checked>Active</template>
@@ -161,6 +187,31 @@
           <n-form-item label="Description" path="description">
             <n-input v-model:value="editRoleData.description" type="textarea" placeholder="Enter role description"
               :autosize="{ minRows: 3, maxRows: 6 }" />
+          </n-form-item>
+
+          <n-form-item label="Permissions">
+            <div class="space-y-2 max-h-48 overflow-y-auto border rounded p-3">
+              <div v-if="permissionsLoading" class="text-center text-gray-500">
+                Loading permissions...
+              </div>
+              <div v-else-if="permissionsData?.data">
+                <n-checkbox-group v-model:value="editSelectedPermissions">
+                  <div class="grid grid-cols-1 gap-2">
+                    <n-checkbox
+                      v-for="permission in permissionsData.data"
+                      :key="permission.id"
+                      :value="permission.id"
+                      :label="permission.name"
+                    >
+                      <div class="flex flex-col">
+                        <span class="font-medium">{{ permission.name }}</span>
+                        <span class="text-xs text-gray-500">{{ permission.description }}</span>
+                      </div>
+                    </n-checkbox>
+                  </div>
+                </n-checkbox-group>
+              </div>
+            </div>
           </n-form-item>
 
           <!-- <n-form-item label="Status" path="status">
@@ -218,6 +269,7 @@ import {
 import { computed, h, ref, onMounted } from 'vue'
 import PageWrapper from '../components/common/PageWrapper.vue'
 import { roleApi, type Role as ApiRole, type CreateRoleRequest } from '../services/roleApi'
+import { permissionApi, type Permission as ApiPermission } from '../services/permissionApi'
 
 import { useApi } from '../composables/useApi'
 
@@ -241,6 +293,7 @@ const dialog = useDialog()
 
 // API composables
 const { data: rolesData, loading, error, execute: loadRoles } = useApi(roleApi.getRoles)
+const { data: permissionsData, loading: permissionsLoading, execute: loadPermissions } = useApi(permissionApi.getPermissions)
 const { loading: deleteLoading, execute: executeDelete } = useApi(roleApi.deleteRole)
 const { loading: createLoading, execute: executeCreate } = useApi(roleApi.createRole)
 
@@ -250,6 +303,10 @@ const currentPage = ref(1)
 const pageSize = ref(10)
 const showCreateRoleModal = ref(false)
 const showEditRoleModal = ref(false)
+
+// Permissions state
+const selectedPermissions = ref<number[]>([])
+const editSelectedPermissions = ref<number[]>([])
 
 const selectedRole = ref<Role | null>(null)
 const createRoleFormRef = ref()
@@ -291,8 +348,9 @@ const loadRolesData = async () => {
 
 // Load permissions data
 // Initialize data on mount
-onMounted(() => {
-  loadRolesData()
+onMounted(async () => {
+  await loadRolesData()
+  await loadPermissions()
 })
 
 interface Permission {
@@ -328,7 +386,16 @@ async function handleCreateRole() {
     })
 
     if (createResult.success && createResult.data) {
-      message.success('Role created successfully')
+      const newRoleId = createResult.data.id
+
+      // Assign selected permissions
+      if (selectedPermissions.value.length > 0) {
+        for (const permissionId of selectedPermissions.value) {
+          await roleApi.assignPermission(newRoleId, permissionId)
+        }
+      }
+
+      message.success('Role created successfully with permissions')
       showCreateRoleModal.value = false
 
       // Reset form
@@ -337,6 +404,7 @@ async function handleCreateRole() {
         description: '',
         active: true
       }
+      selectedPermissions.value = []
 
       // Reload roles data
       await loadRolesData()

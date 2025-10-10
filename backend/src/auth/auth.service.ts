@@ -185,4 +185,45 @@ export class AuthService {
       roles: roles
     };
   }
+
+  async changePassword(userId: number, currentPassword: string, newPassword: string) {
+    // Get user with current password
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId }
+    });
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    // Verify current password
+    let isValidPassword = false;
+    
+    // First try bcrypt comparison
+    try {
+      isValidPassword = await bcrypt.compare(currentPassword, user.password);
+    } catch (error) {
+      // If bcrypt fails, try simple base64 comparison (for seed data)
+      try {
+        const decoded = Buffer.from(user.password, 'base64').toString('utf-8');
+        isValidPassword = decoded === currentPassword;
+      } catch (decodeError) {
+        isValidPassword = false;
+      }
+    }
+
+    if (!isValidPassword) {
+      throw new Error('Invalid current password');
+    }
+
+    // Hash new password and update
+    const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+    
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { password: hashedNewPassword }
+    });
+
+    return { success: true };
+  }
 }

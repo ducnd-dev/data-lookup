@@ -16,10 +16,11 @@ export class LookupService {
     private queueService: QueueService,
   ) {}
 
-  async batchInsertLookupData(data: any[], userId: number) {
+  async batchInsertLookupData(data: any[], userId: number, fileName?: string) {
     const jobId = await this.queueService.addDataImportJob({
       data,
       userId,
+      fileName,
       batchSize: FILE_UPLOAD_CONFIG.batchSize,
     });
 

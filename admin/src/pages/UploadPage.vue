@@ -4,7 +4,7 @@
       <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div class="min-w-0 flex-1">
           <h1 class="text-3xl font-bold text-gray-900">Upload</h1>
-          <p class="mt-2 text-sm text-gray-700">Upload and manage your files</p>
+          <p class="mt-2 text-sm text-gray-700">Upload files and manage your data</p>
         </div>
         <div class="flex gap-3 flex-shrink-0">
           <n-button type="default" size="large" @click="downloadExampleFile">
@@ -14,14 +14,6 @@
               </n-icon>
             </template>
             Download Example
-          </n-button>
-          <n-button type="primary" size="large" @click="showBulkUpload = true">
-            <template #icon>
-              <n-icon>
-                <FolderOpen />
-              </n-icon>
-            </template>
-            Bulk Upload
           </n-button>
         </div>
       </div>
@@ -79,232 +71,139 @@
         </div>
       </n-card>
 
-      <!-- Recent Uploads -->
-      <n-card title="Recent Uploads">
-        <n-data-table :columns="uploadColumns" :data="recentUploads" :pagination="{ pageSize: 10 }" />
-      </n-card>
-
-      <!-- Upload Statistics -->
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <n-card>
-          <n-statistic label="Total Files" :value="uploadStats.totalFiles">
-            <template #prefix>
-              <n-icon class="text-blue-500">
-                <Documents />
-              </n-icon>
-            </template>
-          </n-statistic>
-        </n-card>
-
-        <n-card>
-          <n-statistic label="Storage Used" :value="uploadStats.storageUsed" suffix="MB">
-            <template #prefix>
-              <n-icon class="text-green-500">
-                <Server />
-              </n-icon>
-            </template>
-          </n-statistic>
-        </n-card>
-
-        <n-card>
-          <n-statistic label="Success Rate" :value="uploadStats.successRate" suffix="%">
-            <template #prefix>
-              <n-icon class="text-purple-500">
-                <TrendingUp />
-              </n-icon>
-            </template>
-          </n-statistic>
-        </n-card>
-      </div>
-
-      <!-- Quick Actions -->
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <n-card>
-          <div class="text-center">
-            <n-icon size="48" class="text-blue-500 mb-4">
-              <Image />
-            </n-icon>
-            <h3 class="text-lg font-semibold mb-2">Images</h3>
-            <p class="text-gray-600 text-sm mb-4">
-              Upload and manage image files
-            </p>
-            <n-button type="primary" size="small" @click="filterByType('image')">
-              View Images
-            </n-button>
-          </div>
-        </n-card>
-
-        <n-card>
-          <div class="text-center">
-            <n-icon size="48" class="text-red-500 mb-4">
-              <DocumentText />
-            </n-icon>
-            <h3 class="text-lg font-semibold mb-2">Documents</h3>
-            <p class="text-gray-600 text-sm mb-4">
-              Upload PDFs and documents
-            </p>
-            <n-button type="primary" size="small" @click="filterByType('document')">
-              View Documents
-            </n-button>
-          </div>
-        </n-card>
-
-        <n-card>
-          <div class="text-center">
-            <n-icon size="48" class="text-green-500 mb-4">
-              <Grid />
-            </n-icon>
-            <h3 class="text-lg font-semibold mb-2">Spreadsheets</h3>
-            <p class="text-gray-600 text-sm mb-4">
-              Upload Excel and CSV files
-            </p>
-            <n-button type="primary" size="small" @click="filterByType('spreadsheet')">
-              View Spreadsheets
-            </n-button>
-          </div>
-        </n-card>
-
-        <n-card>
-          <div class="text-center">
-            <n-icon size="48" class="text-purple-500 mb-4">
-              <Archive />
-            </n-icon>
-            <h3 class="text-lg font-semibold mb-2">Archives</h3>
-            <p class="text-gray-600 text-sm mb-4">
-              Upload ZIP and compressed files
-            </p>
-            <n-button type="primary" size="small" @click="filterByType('archive')">
-              View Archives
-            </n-button>
-          </div>
-        </n-card>
-      </div>
-
-      <!-- Bulk Upload Modal -->
-      <n-modal v-model:show="showBulkUpload">
-        <n-card style="width: 800px" title="Bulk Upload" :bordered="false" size="huge" role="dialog" aria-modal="true">
-          <template #header-extra>
-            <n-button quaternary circle @click="showBulkUpload = false">
-              <template #icon>
-                <n-icon>
-                  <CloseOutline />
-                </n-icon>
-              </template>
-            </n-button>
-          </template>
-
-          <div class="space-y-6">
-            <!-- Upload Instructions -->
-            <n-alert type="info" :show-icon="false">
-              <div class="space-y-2">
-                <h4 class="font-semibold">Bulk Upload Instructions:</h4>
-                <ul class="list-disc list-inside space-y-1 text-sm">
-                  <li>Select multiple files or drag entire folders</li>
-                  <li>Supported formats: CSV, Excel (.xlsx), Text files</li>
-                  <li>Each file should contain data with columns: col_a, col_b, col_c</li>
-                  <li>Maximum file size: 50MB per file</li>
-                  <li>Maximum 100 files per bulk upload</li>
-                </ul>
-              </div>
-            </n-alert>
-
-            <!-- Example File Download -->
-            <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-              <div>
-                <h4 class="font-medium">Need a template?</h4>
-                <p class="text-sm text-gray-600">Download our example file to see the expected format</p>
-              </div>
-              <n-button type="primary" @click="downloadExampleFile">
+      <!-- Recent Uploads & Jobs -->
+      <n-card>
+        <template #header>
+          <div class="flex items-center justify-between">
+            <h3 class="text-lg font-semibold">Recent Uploads & Jobs</h3>
+            <div class="flex gap-2">
+              <n-button size="small" @click="refreshData">
                 <template #icon>
                   <n-icon>
-                    <Download />
+                    <Refresh />
                   </n-icon>
                 </template>
-                Download Example CSV
+                Refresh
               </n-button>
-            </div>
-
-            <!-- Bulk Upload Area -->
-            <n-upload
-              ref="bulkUploadRef"
-              multiple
-              directory-dnd
-              :max="100"
-              :on-before-upload="beforeBulkUpload"
-              :on-finish="onBulkUploadFinish"
-              accept=".csv,.xlsx,.xls,.txt"
-            >
-              <n-upload-dragger>
-                <div class="text-center py-8">
-                  <n-icon size="64" class="mb-4 text-blue-500">
-                    <FolderOpen />
-                  </n-icon>
-                  <h3 class="text-lg font-semibold mb-2">Drop multiple files or folders here</h3>
-                  <p class="text-gray-600 mb-2">or click to select files</p>
-                  <n-tag type="info" size="small">Bulk upload up to 100 files at once</n-tag>
-                </div>
-              </n-upload-dragger>
-            </n-upload>
-
-            <!-- Bulk Upload Progress -->
-            <div v-if="bulkUploadProgress.length > 0" class="space-y-4">
-              <div class="flex items-center justify-between">
-                <h4 class="font-semibold">Upload Progress ({{ completedUploads }}/{{ bulkUploadProgress.length }})</h4>
-                <n-progress
-                  type="line"
-                  :percentage="Math.round((completedUploads / bulkUploadProgress.length) * 100)"
-                  status="success"
-                  style="width: 200px"
-                />
-              </div>
-
-              <div class="max-h-60 overflow-y-auto space-y-2">
-                <div
-                  v-for="file in bulkUploadProgress"
-                  :key="file.id"
-                  class="flex items-center justify-between p-2 bg-white border rounded"
-                >
-                  <div class="flex items-center space-x-2 flex-1">
-                    <n-icon :class="getStatusIconClass(file.status)">
-                      <Document />
-                    </n-icon>
-                    <div class="flex-1 min-w-0">
-                      <p class="text-sm font-medium truncate">{{ file.name }}</p>
-                      <p class="text-xs text-gray-500">{{ formatFileSize(file.size) }}</p>
-                    </div>
-                  </div>
-                  <div class="flex items-center space-x-2">
-                    <n-progress
-                      type="line"
-                      :percentage="file.progress"
-                      :status="file.status === 'error' ? 'error' : file.status === 'success' ? 'success' : 'info'"
-                      style="width: 100px"
-                      size="small"
-                    />
-                    <n-tag
-                      :type="file.status === 'success' ? 'success' : file.status === 'error' ? 'error' : 'info'"
-                      size="small"
-                    >
-                      {{ file.status }}
-                    </n-tag>
-                  </div>
-                </div>
-              </div>
-
-              <div class="flex justify-between items-center pt-4 border-t">
-                <div class="text-sm text-gray-600">
-                  <span class="text-green-600">{{ successCount }} successful</span>
-                  <span v-if="errorCount > 0" class="text-red-600 ml-4">{{ errorCount }} failed</span>
-                </div>
-                <div class="flex gap-2">
-                  <n-button @click="clearBulkProgress">Clear</n-button>
-                  <n-button type="primary" @click="showBulkUpload = false">Done</n-button>
-                </div>
-              </div>
+              <n-select v-model:value="viewFilter" placeholder="Filter" style="width: 120px" size="small">
+                <n-option value="all" label="All" />
+                <n-option value="uploads" label="Uploads" />
+                <n-option value="jobs" label="Jobs" />
+              </n-select>
             </div>
           </div>
-        </n-card>
+        </template>
+
+        <n-data-table
+          :columns="combinedColumns"
+          :data="filteredCombinedData"
+          :pagination="{
+            page: currentPage,
+            pageSize: pageSize,
+            showSizePicker: true,
+            pageSizes: [10, 15, 20, 50],
+            onChange: handlePageChange,
+            onUpdatePageSize: handlePageSizeChange,
+            itemCount: totalItems,
+            showQuickJumper: true
+          }"
+          :loading="loading || jobsLoading"
+          :scroll-x="1200"
+          striped
+        />
+      </n-card>
+
+
+      <!-- Job Details Modal -->
+      <n-modal v-model:show="showJobDetailsModal" preset="card" style="width: 800px" title="Job Details">
+        <div v-if="selectedJob && selectedJob.type === 'job'" class="space-y-6">
+          <!-- Basic Information -->
+          <n-card title="Basic Information" size="small">
+            <n-descriptions :column="2" bordered>
+              <n-descriptions-item label="Job Name">{{ selectedJob.displayName }}</n-descriptions-item>
+              <n-descriptions-item label="Job Type">
+                <n-tag type="info">{{ selectedJob.originalType || selectedJob.type }}</n-tag>
+              </n-descriptions-item>
+              <n-descriptions-item label="Status">
+                <n-tag :type="getStatusType(selectedJob.status)">{{ selectedJob.status }}</n-tag>
+              </n-descriptions-item>
+              <n-descriptions-item label="Progress">
+                <div v-if="selectedJob.progress !== undefined" class="flex items-center space-x-2">
+                  <n-progress type="line" :percentage="selectedJob.progress" style="width: 100px" />
+                  <span>{{ selectedJob.progress }}%</span>
+                </div>
+                <span v-else>-</span>
+              </n-descriptions-item>
+              <n-descriptions-item label="Created By">{{ selectedJob.createdBy || '-' }}</n-descriptions-item>
+              <n-descriptions-item label="Description">{{ selectedJob.description || '-' }}</n-descriptions-item>
+            </n-descriptions>
+          </n-card>
+
+          <!-- Time Information -->
+          <n-card title="Time Information" size="small">
+            <n-descriptions :column="1" bordered>
+              <n-descriptions-item label="Created At">{{ formatDateTime(selectedJob.createdAt) }}</n-descriptions-item>
+              <n-descriptions-item label="Started At">{{ selectedJob.startTime ? formatDateTime(selectedJob.startTime) : '-' }}</n-descriptions-item>
+              <n-descriptions-item label="Ended At">{{ selectedJob.endTime ? formatDateTime(selectedJob.endTime) : '-' }}</n-descriptions-item>
+              <n-descriptions-item label="Duration" v-if="selectedJob.startTime && selectedJob.endTime">
+                {{ calculateDuration(selectedJob.startTime, selectedJob.endTime) }}
+              </n-descriptions-item>
+            </n-descriptions>
+          </n-card>
+
+          <!-- Results -->
+          <n-card v-if="selectedJob.result" title="Results" size="small">
+            <n-descriptions :column="2" bordered>
+              <n-descriptions-item label="Records Processed">{{ selectedJob.result.recordsProcessed || 0 }}</n-descriptions-item>
+              <n-descriptions-item label="Successful Records">
+                <span class="text-green-600 font-medium">{{ selectedJob.result.recordsSuccessful || 0 }}</span>
+              </n-descriptions-item>
+              <n-descriptions-item label="Failed Records">
+                <span class="text-red-500 font-medium">{{ selectedJob.result.recordsFailed || 0 }}</span>
+              </n-descriptions-item>
+              <n-descriptions-item label="Success Rate">
+                {{ selectedJob.result.recordsProcessed ? Math.round((selectedJob.result.recordsSuccessful || 0) / selectedJob.result.recordsProcessed * 100) : 0 }}%
+              </n-descriptions-item>
+              <n-descriptions-item label="Output File" v-if="selectedJob.result.outputFile">
+                <n-button size="small" type="primary" @click="downloadOutput(selectedJob.result.outputFile)">
+                  Download Output
+                </n-button>
+              </n-descriptions-item>
+            </n-descriptions>
+
+            <!-- Error Message -->
+            <div v-if="selectedJob.result.errorMessage" class="mt-4">
+              <h4 class="text-sm font-medium text-red-600 mb-2">Error Message:</h4>
+              <div class="p-3 bg-red-50 border border-red-200 rounded text-sm text-red-700">
+                {{ selectedJob.result.errorMessage }}
+              </div>
+            </div>
+          </n-card>
+
+          <!-- Metadata -->
+          <n-card v-if="selectedJob.metadata" title="Metadata" size="small">
+            <n-descriptions :column="2" bordered>
+              <n-descriptions-item label="File Name" v-if="selectedJob.metadata.fileName">{{ selectedJob.metadata.fileName }}</n-descriptions-item>
+              <n-descriptions-item label="Total Rows" v-if="selectedJob.metadata.totalRows">{{ selectedJob.metadata.totalRows }}</n-descriptions-item>
+              <n-descriptions-item label="File Path" v-if="selectedJob.metadata.filePath">
+                <span class="text-xs font-mono text-gray-600">{{ selectedJob.metadata.filePath }}</span>
+              </n-descriptions-item>
+            </n-descriptions>
+          </n-card>
+        </div>
+
+        <template #action>
+          <div class="flex justify-end">
+            <n-button @click="showJobDetailsModal = false">Close</n-button>
+          </div>
+        </template>
       </n-modal>
+
+      <!-- Bulk Upload Modal -->
+      <!-- Removed -->
+
+      <!-- Create Job Modal -->
+      <!-- Removed -->
     </div>
   </PageWrapper>
 </template>
@@ -313,34 +212,59 @@
 import {
   Archive,
   CloudUpload,
-  CloseOutline,
   Document, Documents,
   DocumentText,
   Download,
-  Eye,
-  FolderOpen,
   Grid,
   Image,
+  Refresh,
   Server,
-  Trash,
   TrendingUp
 } from '@vicons/ionicons5'
 import {
-  NAlert,
   NButton,
   NCard,
   NDataTable,
+  NDescriptions,
+  NDescriptionsItem,
   NIcon,
   NModal,
   NProgress,
-  NStatistic,
+  NSelect,
   NTag,
   NUpload, NUploadDragger,
   useMessage, type DataTableColumns, type UploadFileInfo
 } from 'naive-ui'
-import { computed, h, ref } from 'vue'
+import { computed, h, ref, onMounted, watch } from 'vue'
 import PageWrapper from '../components/common/PageWrapper.vue'
 import uploadApi from '../services/uploadApi'
+import { jobApi } from '@/services/jobApi'
+
+interface JobItem {
+  id: string
+  name: string
+  type: string
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
+  description?: string
+  progress: number
+  startTime?: string
+  endTime?: string
+  createdBy: string
+  result?: {
+    recordsProcessed: number
+    recordsSuccessful: number
+    recordsFailed: number
+    outputFile?: string | null
+    errorMessage?: string | null
+  }
+  metadata?: {
+    fileName?: string
+    totalRows?: number
+    filePath?: string
+  }
+  createdAt: string
+  updatedAt: string
+}
 
 interface UploadFile {
   id: string
@@ -362,13 +286,127 @@ interface RecentUpload {
 
 const message = useMessage()
 
+// Filter for combined view
+const viewFilter = ref('all')
+
+// Pagination state
+const currentPage = ref(1)
+const pageSize = ref(15)
+
+// Job Management API composables (with dynamic pagination)
+const jobsData = ref<{
+  jobs: JobItem[]
+  total: number
+  page: number
+  limit: number
+  totalPages: number
+} | null>(null)
+const jobsLoading = ref(false)
+
+const fetchJobs = async () => {
+  try {
+    jobsLoading.value = true
+    const response = await jobApi.getJobs({
+      page: currentPage.value,
+      limit: pageSize.value,
+      sortBy: 'createdAt',
+      sortOrder: 'desc'
+    })
+
+    if (response.success) {
+      jobsData.value = response.data
+    } else {
+      console.error('Failed to fetch jobs:', response.error)
+      jobsData.value = { jobs: [], total: 0, page: 1, limit: pageSize.value, totalPages: 0 }
+    }
+  } catch (error) {
+    console.error('Failed to fetch jobs:', error)
+    jobsData.value = { jobs: [], total: 0, page: 1, limit: pageSize.value, totalPages: 0 }
+  } finally {
+    jobsLoading.value = false
+  }
+}
+
 // State
 const uploadRef = ref()
-const bulkUploadRef = ref()
-const showBulkUpload = ref(false)
+const loading = ref(false)
 const uploadProgress = ref<UploadFile[]>([])
-const bulkUploadProgress = ref<UploadFile[]>([])
 const recentUploads = ref<RecentUpload[]>([])
+
+// Job Details Modal State
+const showJobDetailsModal = ref(false)
+const selectedJob = ref<{
+  type: 'upload' | 'job',
+  displayName: string,
+  status: string,
+  size?: number,
+  createdAt: string,
+  progress?: number,
+  originalType?: string,
+  description?: string,
+  startTime?: string,
+  endTime?: string,
+  createdBy?: string,
+  metadata?: {
+    fileName?: string
+    totalRows?: number
+    filePath?: string
+  },
+  result?: {
+    recordsProcessed: number
+    recordsSuccessful: number
+    recordsFailed: number
+    outputFile?: string | null
+    errorMessage?: string | null
+  }
+} | null>(null)
+
+// Job Management State - removed bulk upload and create job
+
+// Computed data with fallback
+const jobs = computed(() => {
+  const jobsList = jobsData.value?.jobs || []
+  console.log('Jobs data:', jobsList)
+  return jobsList
+})
+
+// Combined data for unified table
+const combinedData = computed(() => {
+  const uploads = recentUploads.value.map(upload => ({
+    ...upload,
+    type: 'upload' as const,
+    displayName: upload.name,
+    createdAt: upload.uploadedAt,
+    status: 'completed' as const
+  }))
+
+  const jobItems = jobs.value.map((job: JobItem) => ({
+    ...job,
+    type: 'job' as const,
+    displayName: job.name,
+    createdAt: job.createdAt,
+    status: job.status,
+    progress: job.progress,
+    result: job.result,
+    originalType: job.type, // Keep original job type for display
+    description: job.description,
+    startTime: job.startTime,
+    endTime: job.endTime,
+    createdBy: job.createdBy,
+    metadata: job.metadata
+  }))
+
+  return [...uploads, ...jobItems].sort((a, b) =>
+    new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  )
+})
+
+const filteredCombinedData = computed(() => {
+  if (viewFilter.value === 'all') return combinedData.value
+  if (viewFilter.value === 'uploads') return combinedData.value.filter(item => item.type === 'upload')
+  if (viewFilter.value === 'jobs') return combinedData.value.filter(item => item.type === 'job')
+  return combinedData.value
+})
 
 // Statistics
 const uploadStats = computed(() => ({
@@ -377,74 +415,287 @@ const uploadStats = computed(() => ({
   successRate: 98.5
 }))
 
-// Bulk upload statistics
-const completedUploads = computed(() =>
-  bulkUploadProgress.value.filter(f => f.status === 'success' || f.status === 'error').length
-)
+// Pagination computed values
+const totalItems = computed(() => {
+  // For jobs, use API pagination data if available
+  const jobsTotal = jobsData.value?.total || 0
+  const uploadsTotal = recentUploads.value.length
 
-const successCount = computed(() =>
-  bulkUploadProgress.value.filter(f => f.status === 'success').length
-)
+  if (viewFilter.value === 'jobs') return jobsTotal
+  if (viewFilter.value === 'uploads') return uploadsTotal
+  return jobsTotal + uploadsTotal
+})
 
-const errorCount = computed(() =>
-  bulkUploadProgress.value.filter(f => f.status === 'error').length
-)
+// Pagination handlers
+function handlePageChange(page: number) {
+  currentPage.value = page
+  fetchJobs() // Refetch jobs with new page
+}
 
-// Table columns
-const uploadColumns: DataTableColumns<RecentUpload> = [
+function handlePageSizeChange(size: number) {
+  pageSize.value = size
+  currentPage.value = 1 // Reset to first page
+  fetchJobs() // Refetch jobs with new page size
+}
+
+// Combined columns for unified table
+const combinedColumns: DataTableColumns<{
+  type: 'upload' | 'job',
+  displayName: string,
+  status: string,
+  size?: number,
+  createdAt: string,
+  progress?: number,
+  originalType?: string,
+  description?: string,
+  startTime?: string,
+  endTime?: string,
+  createdBy?: string,
+  metadata?: {
+    fileName?: string
+    totalRows?: number
+  },
+  result?: {
+    recordsProcessed: number
+    recordsSuccessful: number
+    recordsFailed: number
+    outputFile?: string | null
+    errorMessage?: string | null
+  }
+}> = [
+  {
+    title: 'Type',
+    key: 'type',
+    width: 100,
+    render: (row) => {
+      if (row.type === 'upload') {
+        return h(NTag, { type: 'info', size: 'small' }, { default: () => 'Upload' })
+      }
+      // For jobs, show the actual job type
+      const jobTypeMap = {
+        daily_backup: 'Backup',
+        processing: 'Processing',
+        export: 'Export',
+        import: 'Import',
+        search: 'Search',
+        sync: 'Sync',
+        analysis: 'Analysis'
+      } as const
+
+      const jobType = jobTypeMap[row.originalType as keyof typeof jobTypeMap] || row.originalType || 'Job'
+      return h(NTag, { type: 'warning', size: 'small' }, { default: () => jobType })
+    }
+  },
   {
     title: 'Name',
-    key: 'name',
+    key: 'displayName',
+    ellipsis: { tooltip: true },
     render: (row) => {
-      return h('div', { class: 'flex items-center space-x-2' }, [
-        h(NIcon, { class: getFileIconClass(row.type) }, { default: () => h(Document) }),
-        h('span', row.name)
+      return h('div', [
+        h('div', { class: 'font-medium' }, row.displayName),
+        row.description && h('div', { class: 'text-xs text-gray-500' }, row.description)
       ])
     }
   },
   {
-    title: 'Type',
-    key: 'type'
-  },
-  {
-    title: 'Size',
-    key: 'size',
-    render: (row) => formatFileSize(row.size)
-  },
-  {
-    title: 'Uploaded At',
-    key: 'uploadedAt'
-  },
-  {
     title: 'Status',
     key: 'status',
-    render: (row) => h('span', {
-      class: row.status === 'Success' ? 'text-green-600' : 'text-red-600'
-    }, row.status)
+    width: 120,
+    render: (row) => {
+      const statusConfig = {
+        completed: { type: 'success', text: 'Completed' },
+        pending: { type: 'warning', text: 'Pending' },
+        running: { type: 'info', text: 'Running' },
+        failed: { type: 'error', text: 'Failed' },
+        cancelled: { type: 'default', text: 'Cancelled' }
+      } as const
+
+      const config = statusConfig[row.status as keyof typeof statusConfig] || { type: 'default', text: row.status }
+      return h(NTag, { type: config.type, size: 'small' }, { default: () => config.text })
+    }
+  },
+  {
+    title: 'Progress',
+    key: 'progress',
+    width: 120,
+    render: (row) => {
+      if (row.type === 'job' && typeof row.progress === 'number') {
+        return h('div', [
+          h(NProgress, {
+            type: 'line',
+            percentage: row.progress,
+            status: row.status === 'failed' ? 'error' : row.status === 'completed' ? 'success' : 'info'
+          }),
+          h('div', { class: 'text-xs text-center mt-1' }, `${row.progress}%`)
+        ])
+      }
+      return '-'
+    }
+  },
+  {
+    title: 'Records/Size',
+    key: 'records',
+    width: 120,
+    render: (row) => {
+      if (row.type === 'job' && row.result) {
+        const elements = [
+          h('div', { class: 'text-green-600' }, `✓ ${row.result.recordsSuccessful || 0}`),
+          h('div', { class: 'text-red-500' }, `✗ ${row.result.recordsFailed || 0}`),
+          h('div', { class: 'text-gray-500' }, `Total: ${row.result.recordsProcessed || 0}`)
+        ]
+
+        // Add error message if exists
+        if (row.result.errorMessage) {
+          elements.push(h('div', {
+            class: 'text-red-600 text-xs mt-1 font-medium',
+            title: row.result.errorMessage
+          }, `Error: ${row.result.errorMessage.substring(0, 30)}${row.result.errorMessage.length > 30 ? '...' : ''}`))
+        }
+
+        return h('div', { class: 'text-sm space-y-1' }, elements)
+      }
+      if (row.type === 'upload' && row.size) {
+        return formatFileSize(row.size)
+      }
+      return '-'
+    }
+  },
+  {
+    title: 'Time Info',
+    key: 'timeInfo',
+    width: 160,
+    render: (row) => {
+      if (row.type === 'job') {
+        return h('div', { class: 'text-xs space-y-1' }, [
+          h('div', `Created: ${new Date(row.createdAt).toLocaleString()}`),
+          row.startTime && h('div', `Started: ${new Date(row.startTime).toLocaleString()}`),
+          row.endTime && h('div', `Ended: ${new Date(row.endTime).toLocaleString()}`)
+        ])
+      }
+      return h('div', { class: 'text-xs' }, new Date(row.createdAt).toLocaleString())
+    }
+  },
+  {
+    title: 'Created By',
+    key: 'createdBy',
+    width: 100,
+    render: (row) => {
+      if (row.type === 'job' && row.createdBy) {
+        return h('div', { class: 'text-sm' }, `User ${row.createdBy}`)
+      }
+      return '-'
+    }
+  },
+  {
+    title: 'Metadata',
+    key: 'metadata',
+    width: 120,
+    render: (row) => {
+      if (row.type === 'job' && row.metadata) {
+        return h('div', { class: 'text-xs space-y-1' }, [
+          row.metadata.fileName && h('div', `File: ${row.metadata.fileName}`),
+          row.metadata.totalRows && h('div', `Rows: ${row.metadata.totalRows}`)
+        ])
+      }
+      return '-'
+    }
   },
   {
     title: 'Actions',
     key: 'actions',
-    render: (row) => h('div', { class: 'flex space-x-2' }, [
-      h(NButton, {
-        size: 'small',
-        type: 'primary',
-        onClick: () => downloadFile(row)
-      }, {
-        default: () => 'Download',
-        icon: () => h(NIcon, null, { default: () => h(Download) })
-      }),
-      h(NButton, {
-        size: 'small',
-        type: 'error',
-        onClick: () => deleteFile(row)
-      }, {
-        default: () => 'Delete',
-        icon: () => h(NIcon, null, { default: () => h(Trash) })
-      })
-    ])
+    width: 120,
+    fixed: 'right',
+    render: (row) => {
+      if (row.type === 'upload') {
+        return h('div', { class: 'flex gap-1' }, [
+          h(NButton, {
+            size: 'small',
+            type: 'primary',
+            ghost: true,
+            onClick: () => message.info(`Download: ${row.displayName}`)
+          }, { default: () => 'Download' })
+        ])
+      } else {
+        return h('div', { class: 'flex gap-1' }, [
+          h(NButton, {
+            size: 'small',
+            type: 'primary',
+            ghost: true,
+            onClick: () => showJobDetails(row)
+          }, { default: () => 'View' }),
+          row.result?.outputFile && h(NButton, {
+            size: 'small',
+            type: 'success',
+            ghost: true,
+            onClick: () => message.info(`Download output: ${row.result?.outputFile}`)
+          }, { default: () => 'Output' })
+        ])
+      }
+    }
   }
 ]
+
+// Refresh data function
+function refreshData() {
+  // Refresh recent uploads (could be fetched from API)
+  loadRecentUploads()
+  fetchJobs()
+}
+
+// Show job details
+function showJobDetails(job: typeof selectedJob.value) {
+  if (job?.type === 'job') {
+    selectedJob.value = job
+    showJobDetailsModal.value = true
+  }
+}
+
+// Helper functions for modal
+function getStatusType(status: string) {
+  const statusMap = {
+    'completed': 'success',
+    'running': 'info',
+    'pending': 'warning',
+    'failed': 'error',
+    'cancelled': 'default'
+  } as const
+  return statusMap[status as keyof typeof statusMap] || 'default'
+}
+
+function formatDateTime(dateString: string) {
+  return new Date(dateString).toLocaleString()
+}
+
+function calculateDuration(startTime: string, endTime: string) {
+  const start = new Date(startTime)
+  const end = new Date(endTime)
+  const durationMs = end.getTime() - start.getTime()
+  const minutes = Math.floor(durationMs / 60000)
+  const seconds = Math.floor((durationMs % 60000) / 1000)
+  return `${minutes}m ${seconds}s`
+}
+
+function downloadOutput(outputFile: string | null) {
+  if (outputFile) {
+    message.info(`Downloading: ${outputFile}`)
+    // Implement actual download logic here
+  }
+}
+
+// Load recent uploads (mock data for now)
+function loadRecentUploads() {
+  // This could be replaced with actual API call
+  recentUploads.value = [
+    {
+      id: 1,
+      name: 'sample-data.xlsx',
+      size: 2048576,
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      uploadedAt: new Date().toISOString(),
+      status: 'completed'
+    }
+  ]
+}
 
 // Methods
 function beforeUpload(options: { file: UploadFileInfo, fileList: UploadFileInfo[] }) {
@@ -471,7 +722,7 @@ function beforeUpload(options: { file: UploadFileInfo, fileList: UploadFileInfo[
   // Real API upload instead of simulation
   if (file.file) {
     uploadApi.uploadDataFile(file.file)
-      .then((response: any) => {
+      .then((response: { success: boolean, rowsCount?: number, message?: string }) => {
         const fileIndex = uploadProgress.value.findIndex(f => f.id === uploadFile.id)
         if (fileIndex !== -1 && uploadProgress.value[fileIndex]) {
           if (response.success) {
@@ -484,7 +735,7 @@ function beforeUpload(options: { file: UploadFileInfo, fileList: UploadFileInfo[
           }
         }
       })
-      .catch((error: any) => {
+      .catch((error: Error) => {
         const fileIndex = uploadProgress.value.findIndex(f => f.id === uploadFile.id)
         if (fileIndex !== -1 && uploadProgress.value[fileIndex]) {
           uploadProgress.value[fileIndex]!.status = 'error'
@@ -562,22 +813,6 @@ function filterByType(type: string) {
   message.info(`Filtering by ${type} files`)
 }
 
-function viewFile(file: RecentUpload) {
-  message.info(`Viewing ${file.name}`)
-}
-
-function downloadFile(file: RecentUpload) {
-  message.success(`Downloading ${file.name}`)
-}
-
-function deleteFile(file: RecentUpload) {
-  const index = recentUploads.value.findIndex(f => f.id === file.id)
-  if (index !== -1) {
-    recentUploads.value.splice(index, 1)
-    message.success(`${file.name} deleted successfully`)
-  }
-}
-
 // Download example file function
 function downloadExampleFile() {
   const exampleData = [
@@ -589,7 +824,7 @@ function downloadExampleFile() {
   ]
 
   // Convert to CSV
-  const headers = Object.keys(exampleData[0])
+  const headers = Object.keys(exampleData[0] || {})
   const csvContent = [
     headers.join(','),
     ...exampleData.map(row => headers.map(header => row[header as keyof typeof row]).join(','))
@@ -609,87 +844,14 @@ function downloadExampleFile() {
   message.success('Example file downloaded successfully')
 }
 
-// Bulk upload functions
-function beforeBulkUpload(options: { file: UploadFileInfo, fileList: UploadFileInfo[] }) {
-  const file = options.file
+// Watch for pagination changes to refetch data
+watch([currentPage, pageSize], () => {
+  fetchJobs()
+})
 
-  // Check file size (50MB limit for bulk upload)
-  if (file.file && file.file.size > 50 * 1024 * 1024) {
-    message.error('File size must be less than 50MB for bulk upload')
-    return false
-  }
-
-  // Check file type
-  const allowedTypes = ['.csv', '.xlsx', '.xls', '.txt']
-  const fileName = file.name.toLowerCase()
-  const isValidType = allowedTypes.some(type => fileName.endsWith(type))
-
-  if (!isValidType) {
-    message.error('Only CSV, Excel (.xlsx, .xls), and Text files are allowed for bulk upload')
-    return false
-  }
-
-  // Add to bulk progress tracking
-  const uploadFile: UploadFile = {
-    id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-    name: file.name,
-    size: file.file?.size || 0,
-    type: file.file?.type || '',
-    progress: 0,
-    status: 'uploading'
-  }
-
-  bulkUploadProgress.value.push(uploadFile)
-
-  // Upload using API
-  if (file.file) {
-    uploadApi.uploadDataFile(file.file)
-      .then((response: any) => {
-        const fileIndex = bulkUploadProgress.value.findIndex(f => f.id === uploadFile.id)
-        if (fileIndex !== -1 && bulkUploadProgress.value[fileIndex]) {
-          if (response.success) {
-            bulkUploadProgress.value[fileIndex]!.progress = 100
-            bulkUploadProgress.value[fileIndex]!.status = 'success'
-          } else {
-            bulkUploadProgress.value[fileIndex]!.status = 'error'
-          }
-        }
-      })
-      .catch((error: any) => {
-        const fileIndex = bulkUploadProgress.value.findIndex(f => f.id === uploadFile.id)
-        if (fileIndex !== -1 && bulkUploadProgress.value[fileIndex]) {
-          bulkUploadProgress.value[fileIndex]!.status = 'error'
-        }
-      })
-  }
-
-  return false // Prevent naive-ui's default upload behavior
-}
-
-function onBulkUploadFinish(options: { file: UploadFileInfo, event?: ProgressEvent }) {
-  // Add to recent uploads if successful
-  const newUpload: RecentUpload = {
-    id: Date.now(),
-    name: options.file.name,
-    size: options.file.file?.size || 0,
-    type: getFileType(options.file.name),
-    uploadedAt: new Date().toLocaleString(),
-    status: 'Success'
-  }
-  recentUploads.value.unshift(newUpload)
-}
-
-function clearBulkProgress() {
-  bulkUploadProgress.value = []
-  message.info('Bulk upload progress cleared')
-}
-
-function getStatusIconClass(status: string): string {
-  const statusMap: Record<string, string> = {
-    'uploading': 'text-blue-500',
-    'success': 'text-green-500',
-    'error': 'text-red-500'
-  }
-  return statusMap[status] || 'text-gray-500'
-}
+// Initialize data when component mounts
+onMounted(() => {
+  loadRecentUploads()
+  fetchJobs()
+})
 </script>

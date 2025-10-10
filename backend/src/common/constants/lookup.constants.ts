@@ -5,6 +5,7 @@
 export const LOOKUP_COLUMN_MAP = {
   'uid': 'uid',
   'phone': 'phone',
+  'name': 'name',
   'address': 'address',
 } as const;
 
@@ -27,6 +28,7 @@ export const DATABASE_COLUMNS = Object.values(LOOKUP_COLUMN_MAP) as LookupColumn
 export const COLUMN_DISPLAY_NAMES = {
   'uid': 'User ID',
   'phone': 'Phone Number',
+  'name': 'Name',
   'address': 'Address',
 } as const;
 
@@ -43,6 +45,11 @@ export const COLUMN_VALIDATION = {
     maxLength: 20,
     required: false,
     pattern: /^[\+]?[0-9\-\(\)\s]+$/, // Phone number format
+  },
+  name: {
+    maxLength: 255,
+    required: false,
+    pattern: /^.+$/, // Any characters
   },
   address: {
     maxLength: 500,

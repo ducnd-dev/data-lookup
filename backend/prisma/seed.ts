@@ -1,10 +1,11 @@
 import { PrismaClient } from '@prisma/client';
+import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
 
-// Simple hash function for seeding
-function simpleHash(password: string): string {
-  return Buffer.from(password).toString('base64');
+// Hash function using bcrypt like the auth service
+async function hashPassword(password: string): Promise<string> {
+  return bcrypt.hash(password, 10);
 }
 
 async function main() {
@@ -66,6 +67,22 @@ async function main() {
       create: {
         name: 'MANAGE_LOOKUP',
         description: 'Can manage lookup data',
+      },
+    }),
+    prisma.permission.upsert({
+      where: { name: 'MANAGE_QUOTA' },
+      update: {},
+      create: {
+        name: 'MANAGE_QUOTA',
+        description: 'Can manage user quotas and limits',
+      },
+    }),
+    prisma.permission.upsert({
+      where: { name: 'MANAGE_SETTINGS' },
+      update: {},
+      create: {
+        name: 'MANAGE_SETTINGS',
+        description: 'Can manage system settings',
       },
     }),
   ]);
@@ -164,7 +181,8 @@ async function main() {
   console.log('Assigned permissions to roles');
 
   // Create admin user
-  const hashedPassword = simpleHash('admin123');
+    // Create users with hashed passwords
+  const hashedPassword = await hashPassword('admin123');
   
   const adminUser = await prisma.user.upsert({
     where: { email: 'admin@example.com' },
@@ -182,7 +200,7 @@ async function main() {
   });
 
   // Create manager user
-  const managerHashedPassword = simpleHash('manager123');
+  const managerHashedPassword = await hashPassword('manager123');
   
   const managerUser = await prisma.user.upsert({
     where: { email: 'manager@example.com' },
@@ -200,7 +218,7 @@ async function main() {
   });
 
   // Create regular user
-  const userHashedPassword = simpleHash('user123');
+  const userHashedPassword = await hashPassword('user123');
   
   const regularUser = await prisma.user.upsert({
     where: { email: 'user@example.com' },
@@ -219,105 +237,6 @@ async function main() {
 
   console.log('Created users:', [adminUser.email, managerUser.email, regularUser.email]);
 
-  // Create sample lookup data
-  console.log('Creating sample lookup data...');
-  
-  const sampleLookupData = [
-    {
-      uid: 'USR001',
-      phone: '+1234567890',
-      address: '123 Main St, New York, NY 10001',
-    },
-    {
-      uid: 'USR002',
-      phone: '+1234567891',
-      address: '456 Oak Ave, Los Angeles, CA 90210',
-    },
-    {
-      uid: 'USR003',
-      phone: '+1234567892',
-      address: '789 Pine Rd, Chicago, IL 60601',
-    },
-    {
-      uid: 'USR004',
-      phone: '+1234567893',
-      address: '321 Elm St, Houston, TX 77001',
-    },
-    {
-      uid: 'USR005',
-      phone: '+1234567894',
-      address: '654 Maple Dr, Phoenix, AZ 85001',
-    },
-    // Sample with only UID (no phone)
-    {
-      uid: 'USR006',
-      phone: null,
-      address: 'PO Box 123, Miami, FL 33101',
-    },
-    // Sample with only phone (no UID)
-    {
-      uid: null,
-      phone: '+1234567895',
-      address: '987 Cedar Ln, Seattle, WA 98101',
-    },
-    // Sample with UID and address but no phone
-    {
-      uid: 'USR007',
-      phone: null,
-      address: '147 Birch St, Boston, MA 02101',
-    },
-  ];
-
-  // Clear existing lookup data to avoid conflicts during development
-  await prisma.lookupData.deleteMany({});
-
-  // Insert sample data using createMany with skipDuplicates
-  await prisma.lookupData.createMany({
-    data: sampleLookupData,
-    skipDuplicates: true,
-  });
-
-  console.log(`Created ${sampleLookupData.length} sample lookup records`);
-
-  // Create sample job status records for testing
-  console.log('Creating sample job status records...');
-  
-  const sampleJobStatuses = [
-    {
-      jobType: 'data-import',
-      status: 'completed',
-      fileName: 'sample-data.csv',
-      resultPath: '/uploads/reports/import-result-001.xlsx',
-      totalRows: 100,
-      processedRows: 100,
-      createdBy: adminUser.id,
-    },
-    {
-      jobType: 'report-generation',
-      status: 'completed',
-      fileName: 'lookup-report.xlsx',
-      resultPath: '/uploads/reports/lookup-report-001.xlsx',
-      totalRows: 50,
-      processedRows: 50,
-      createdBy: managerUser.id,
-    },
-    {
-      jobType: 'bulk-search',
-      status: 'processing',
-      fileName: 'search-terms.csv',
-      totalRows: 25,
-      processedRows: 15,
-      createdBy: regularUser.id,
-    },
-  ];
-
-  await prisma.jobStatus.createMany({
-    data: sampleJobStatuses,
-    skipDuplicates: true,
-  });
-
-  console.log(`Created ${sampleJobStatuses.length} sample job status records`);
-
   // Print summary
   console.log('\n='.repeat(60));
   console.log('🎉 DATABASE SEEDING COMPLETED SUCCESSFULLY! 🎉');
@@ -327,8 +246,6 @@ async function main() {
   console.log(`✅ Permissions: ${permissions.length}`);
   console.log(`✅ Roles: 3 (Admin, Manager, User)`);
   console.log(`✅ Users: 3`);
-  console.log(`✅ Lookup Data: ${sampleLookupData.length} records`);
-  console.log(`✅ Job Status: ${sampleJobStatuses.length} records`);
   
   console.log('\n🔐 LOGIN CREDENTIALS:');
   console.log('👑 Admin: admin@example.com / admin123');

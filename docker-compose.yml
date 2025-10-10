@@ -53,7 +53,7 @@ services:
       redis:
         condition: service_healthy
     volumes:
-      - ./backend/uploads:/app/uploads
+      - uploads-data:/app/uploads
       - ./logs:/app/logs
     networks:
       - app-network
@@ -128,8 +128,22 @@ services:
 volumes:
   pgdata:
     driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data/postgres
   redis-data:
     driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data/redis
+  uploads-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data/uploads
 
 networks:
   app-network:

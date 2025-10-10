@@ -381,6 +381,7 @@ const bulkLookup = ref({
 const columnOptions = [
   { label: 'User ID', value: 'uid' },
   { label: 'Phone Number', value: 'phone' },
+  { label: 'Name', value: 'name' },
   { label: 'Address', value: 'address' }
 ]
 
@@ -418,6 +419,7 @@ const resultColumns = computed<DataTableColumns<SearchResult>>(() => {
           let title = key.charAt(0).toUpperCase() + key.slice(1)
           if (key === 'uid') title = 'User ID'
           else if (key === 'phone') title = 'Phone Number'
+          else if (key === 'name') title = 'Name'
           else if (key === 'address') title = 'Address'
           else if (key === 'createdAt') title = 'Created At'
           else if (key === 'updatedAt') title = 'Updated At'
@@ -425,7 +427,7 @@ const resultColumns = computed<DataTableColumns<SearchResult>>(() => {
           columns.push({
             title,
             key: key,
-            width: key === 'address' ? 300 : (key === 'phone' ? 150 : 120),
+            width: key === 'address' ? 300 : (key === 'phone' ? 150 : (key === 'name' ? 200 : 120)),
             ellipsis: true
           })
         }

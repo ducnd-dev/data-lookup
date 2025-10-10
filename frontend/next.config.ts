@@ -16,6 +16,16 @@ const nextConfig: NextConfig = {
     NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
   },
   
+  // API proxy to backend
+  async rewrites() {
+    return [
+      {
+        source: '/api/:path*',
+        destination: 'http://localhost:3000/api/:path*', // Proxy to backend NestJS
+      },
+    ]
+  },
+  
   // Experimental features
   experimental: {
     // Enable server components

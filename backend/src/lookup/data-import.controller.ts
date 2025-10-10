@@ -199,7 +199,11 @@ export class DataImportController {
 
       // Queue import job
       console.log('🚀 Queuing import job...');
-      const result = await this.lookupService.batchInsertLookupData(data, req.user.id);
+      const result = await this.lookupService.batchInsertLookupData(
+        data, 
+        req.user.id, 
+        file.originalname
+      );
 
       console.log('✅ Success! Job ID:', result.jobId);
 

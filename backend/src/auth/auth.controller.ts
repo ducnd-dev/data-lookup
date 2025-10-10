@@ -23,6 +23,15 @@ class LoginDto {
   password: string;
 }
 
+class ChangePasswordDto {
+  @IsString()
+  currentPassword: string;
+
+  @IsString()
+  @MinLength(6)
+  newPassword: string;
+}
+
 @Controller('auth')
 export class AuthController {
   constructor(private authService: AuthService) {}
@@ -66,8 +75,33 @@ export class AuthController {
       return { user };
     } catch (error) {
       throw new HttpException(
-        { message: 'Failed to get user information', statusCode: 500 }, 
-        HttpStatus.INTERNAL_SERVER_ERROR
+        { message: 'Failed to get user information', statusCode: 500 },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  @Post('change-password')
+  @UseGuards(JwtAuthGuard)
+  async changePassword(@Body() changePasswordDto: ChangePasswordDto, @Req() req: any) {
+    try {
+      const userId = req.user.userId;
+      const result = await this.authService.changePassword(
+        userId,
+        changePasswordDto.currentPassword,
+        changePasswordDto.newPassword,
+      );
+      return { message: 'Password changed successfully', success: true };
+    } catch (error) {
+      if (error.message === 'Invalid current password') {
+        throw new HttpException(
+          { message: 'Current password is incorrect', statusCode: 400 },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      throw new HttpException(
+        { message: 'Failed to change password', statusCode: 500 },
+        HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
   }

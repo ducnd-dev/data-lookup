@@ -82,6 +82,11 @@ export function usePermissions() {
     return hasPermission('MANAGE_ROLES') || hasRole('Admin')
   })
 
+  // Check if user can access settings
+  const canManageSettings = computed(() => {
+    return hasPermission('MANAGE_SETTINGS') || hasRole('Admin')
+  })
+
   return {
     userPermissions,
     userRoles,
@@ -92,6 +97,7 @@ export function usePermissions() {
     hasAnyRole,
     canUpload,
     canManageUsers,
-    canManageRoles
+    canManageRoles,
+    canManageSettings
   }
 }

@@ -6,11 +6,14 @@ import {
     Post,
     Query,
     Request,
-    UseGuards
+    UseGuards,
+    HttpException,
+    HttpStatus
 } from '@nestjs/common';
 import { Type } from 'class-transformer';
 import { IsArray, IsIn, IsNumber, IsOptional, IsString, Max, Min, ValidateNested } from 'class-validator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { QuotaService } from '../quota/quota.service';
 import type { LookupColumnKey } from '../common/constants/lookup.constants';
 import {
     AVAILABLE_LOOKUP_COLUMNS,
@@ -143,11 +146,33 @@ class ExportSearchResultsDto {
 @Controller('lookup')
 @UseGuards(JwtAuthGuard)
 export class LookupController {
-  constructor(private lookupService: LookupService) {}
+  constructor(
+    private lookupService: LookupService,
+    private quotaService: QuotaService
+  ) {}
 
   @Post('query')
-  async queryLookupData(@Body() dto: QueryLookupDto) {
-    return this.lookupService.queryByValues(
+  @UseGuards(JwtAuthGuard)
+  async queryLookupData(@Body() dto: QueryLookupDto, @Request() req: any) {
+    // Check quota before processing
+    const userId = req.user.id;
+    const hasQuota = await this.quotaService.checkQuota(userId);
+    
+    if (!hasQuota) {
+      // Get quota status for error details
+      const quotaStatus = await this.quotaService.getQuotaStatus(userId);
+      throw new HttpException(
+        {
+          message: 'Daily lookup limit exceeded',
+          dailyLimit: quotaStatus.dailyLimit,
+          dailyUsed: quotaStatus.dailyUsed,
+          remaining: quotaStatus.remaining,
+        },
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
+    const result = await this.lookupService.queryByValues(
       dto.colName,
       dto.values,
       dto.page,
@@ -156,6 +181,11 @@ export class LookupController {
       dto.startDate,
       dto.endDate,
     );
+
+    // Update quota usage if lookup was successful
+    await this.quotaService.updateUsage(userId);
+
+    return result;
   }
 
   @Get(':id')
@@ -194,8 +224,26 @@ export class LookupController {
   }
 
   @Post('bulk-search')
-  async bulkSearchLookupData(@Body() dto: BulkSearchDto) {
-    return this.lookupService.bulkSearchData({
+  @UseGuards(JwtAuthGuard)
+  async bulkSearchLookupData(@Body() dto: BulkSearchDto, @Request() req: any) {
+    // Check quota before processing
+    const userId = req.user.id;
+    const hasQuota = await this.quotaService.checkQuota(userId);
+    
+    if (!hasQuota) {
+      const quotaStatus = await this.quotaService.getQuotaStatus(userId);
+      throw new HttpException(
+        {
+          message: 'Daily lookup limit exceeded',
+          dailyLimit: quotaStatus.dailyLimit,
+          dailyUsed: quotaStatus.dailyUsed,
+          remaining: quotaStatus.remaining,
+        },
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
+    const result = await this.lookupService.bulkSearchData({
       data: dto.searchTerms,
       colName: dto.colName || 'uid',
       searchMode: dto.searchMode || 'exact',
@@ -204,16 +252,44 @@ export class LookupController {
       startDate: dto.startDate,
       endDate: dto.endDate,
     });
+
+    // Update quota usage
+    await this.quotaService.updateUsage(userId);
+
+    return result;
   }
 
   @Post('advanced-bulk-search')
-  async advancedBulkSearchLookupData(@Body() dto: AdvancedBulkSearchDto) {
-    return this.lookupService.advancedBulkSearchData(
+  @UseGuards(JwtAuthGuard)
+  async advancedBulkSearchLookupData(@Body() dto: AdvancedBulkSearchDto, @Request() req: any) {
+    // Check quota before processing
+    const userId = req.user.id;
+    const hasQuota = await this.quotaService.checkQuota(userId);
+    
+    if (!hasQuota) {
+      const quotaStatus = await this.quotaService.getQuotaStatus(userId);
+      throw new HttpException(
+        {
+          message: 'Daily lookup limit exceeded',
+          dailyLimit: quotaStatus.dailyLimit,
+          dailyUsed: quotaStatus.dailyUsed,
+          remaining: quotaStatus.remaining,
+        },
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
+    const result = await this.lookupService.advancedBulkSearchData(
       dto.searchQueries,
       dto.operator || 'OR',
       dto.page,
       dto.limit,
     );
+
+    // Update quota usage
+    await this.quotaService.updateUsage(userId);
+
+    return result;
   }
 
   @Post('bulk-search-export')

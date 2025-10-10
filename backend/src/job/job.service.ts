@@ -52,13 +52,15 @@ export class JobService {
         result: {
           recordsProcessed: job.processedRows || 0,
           recordsSuccessful: job.status === 'completed' ? job.processedRows || 0 : 0,
-          recordsFailed: job.status === 'failed' ? job.totalRows || 0 : 0,
+          recordsFailed: job.status === 'failed' ? (job.totalRows || 0) - (job.processedRows || 0) : 
+                        job.status === 'completed' ? (job.totalRows || 0) - (job.processedRows || 0) : 0,
           outputFile: job.resultPath,
           errorMessage: job.errorMsg
         },
         metadata: {
           fileName: job.fileName,
-          totalRows: job.totalRows
+          totalRows: job.totalRows,
+          filePath: job.resultPath
         },
         createdAt: job.createdAt.toISOString(),
         updatedAt: job.updatedAt.toISOString()
@@ -92,13 +94,15 @@ export class JobService {
       result: {
         recordsProcessed: job.processedRows || 0,
         recordsSuccessful: job.status === 'completed' ? job.processedRows || 0 : 0,
-        recordsFailed: job.status === 'failed' ? job.totalRows || 0 : 0,
+        recordsFailed: job.status === 'failed' ? (job.totalRows || 0) - (job.processedRows || 0) : 
+                      job.status === 'completed' ? (job.totalRows || 0) - (job.processedRows || 0) : 0,
         outputFile: job.resultPath,
         errorMessage: job.errorMsg
       },
       metadata: {
         fileName: job.fileName,
-        totalRows: job.totalRows
+        totalRows: job.totalRows,
+        filePath: job.resultPath
       },
       createdAt: job.createdAt.toISOString(),
       updatedAt: job.updatedAt.toISOString()

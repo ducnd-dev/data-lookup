@@ -284,6 +284,115 @@
           </template>
         </n-card>
       </n-modal>
+
+      <!-- User Quota Modal -->
+      <n-modal v-model:show="showQuotaModal">
+        <n-card style="width: 700px" title="User Quota Management" :bordered="false" size="huge" role="dialog" aria-modal="true">
+          <template #header-extra>
+            <n-button quaternary circle @click="showQuotaModal = false">
+              <template #icon>
+                <n-icon>
+                  <Close />
+                </n-icon>
+              </template>
+            </n-button>
+          </template>
+
+          <div v-if="selectedUserForQuota" class="space-y-6">
+            <!-- User Info -->
+            <div class="bg-gray-50 p-4 rounded-lg">
+              <h3 class="font-medium text-gray-900">{{ selectedUserForQuota.fullName }}</h3>
+              <p class="text-sm text-gray-600">{{ selectedUserForQuota.email }}</p>
+              <div class="mt-2 flex gap-1">
+                <n-tag v-for="role in selectedUserForQuota.roles" :key="role.id"
+                       :type="getRoleTagType(role.name)" size="small">
+                  {{ role.name }}
+                </n-tag>
+              </div>
+            </div>
+
+            <!-- Current Quota Status -->
+            <div v-if="selectedUserForQuota.quota" class="border rounded-lg p-4">
+              <h4 class="font-medium mb-3">Current Quota Status</h4>
+              <div class="grid grid-cols-3 gap-4 text-center">
+                <div>
+                  <div class="text-2xl font-bold text-blue-600">
+                    {{ selectedUserForQuota.quota.dailyLimit === -1 ? '∞' : selectedUserForQuota.quota.dailyLimit }}
+                  </div>
+                  <div class="text-sm text-gray-600">Daily Limit</div>
+                </div>
+                <div>
+                  <div class="text-2xl font-bold text-orange-600">{{ selectedUserForQuota.quota.dailyUsed }}</div>
+                  <div class="text-sm text-gray-600">Used Today</div>
+                </div>
+                <div>
+                  <div class="text-2xl font-bold text-green-600">
+                    {{ selectedUserForQuota.quota.dailyLimit === -1 ? '∞' : selectedUserForQuota.quota.remaining }}
+                  </div>
+                  <div class="text-sm text-gray-600">Remaining</div>
+                </div>
+              </div>
+
+              <!-- Progress bar for non-unlimited users -->
+              <div v-if="selectedUserForQuota.quota.dailyLimit !== -1" class="mt-4">
+                <div class="flex justify-between text-sm text-gray-600 mb-1">
+                  <span>Usage Progress</span>
+                  <span>{{ Math.round((selectedUserForQuota.quota.dailyUsed / selectedUserForQuota.quota.dailyLimit) * 100) }}%</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-2">
+                  <div
+                    class="h-2 rounded-full transition-all"
+                    :class="{
+                      'bg-green-500': selectedUserForQuota.quota.dailyUsed / selectedUserForQuota.quota.dailyLimit < 0.7,
+                      'bg-yellow-500': selectedUserForQuota.quota.dailyUsed / selectedUserForQuota.quota.dailyLimit >= 0.7 && selectedUserForQuota.quota.dailyUsed / selectedUserForQuota.quota.dailyLimit < 0.9,
+                      'bg-red-500': selectedUserForQuota.quota.dailyUsed / selectedUserForQuota.quota.dailyLimit >= 0.9
+                    }"
+                    :style="{ width: `${Math.min((selectedUserForQuota.quota.dailyUsed / selectedUserForQuota.quota.dailyLimit) * 100, 100)}%` }"
+                  ></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Quota Actions -->
+            <div class="space-y-4">
+              <h4 class="font-medium">Quota Actions</h4>
+              <div class="grid grid-cols-2 gap-4">
+                <n-button type="warning" block @click="resetUserQuota">
+                  Reset Daily Usage
+                </n-button>
+                <n-button type="info" block @click="showCustomLimitForm = !showCustomLimitForm">
+                  {{ showCustomLimitForm ? 'Cancel' : 'Set Custom Limit' }}
+                </n-button>
+              </div>
+
+              <!-- Custom Limit Form -->
+              <div v-if="showCustomLimitForm" class="border rounded-lg p-4 bg-gray-50">
+                <n-form-item label="Custom Daily Limit">
+                  <n-input-number
+                    v-model:value="customLimit"
+                    :min="-1"
+                    :max="10000"
+                    placeholder="Enter custom limit (-1 for unlimited)"
+                    style="width: 100%"
+                  />
+                </n-form-item>
+                <n-space justify="end" class="mt-4">
+                  <n-button @click="showCustomLimitForm = false">Cancel</n-button>
+                  <n-button type="primary" :loading="updatingQuota" @click="updateUserQuotaLimit">
+                    Update Limit
+                  </n-button>
+                </n-space>
+              </div>
+            </div>
+          </div>
+
+          <template #footer>
+            <div class="flex justify-end">
+              <n-button @click="showQuotaModal = false">Close</n-button>
+            </div>
+          </template>
+        </n-card>
+      </n-modal>
     </div>
   </PageWrapper>
 </template>
@@ -309,6 +418,11 @@ interface User {
   fullName?: string
   isActive?: boolean
   roles?: Array<{ id: number; name: string; description: string }>
+  quota?: {
+    dailyLimit: number
+    dailyUsed: number
+    remaining: number
+  }
 }
 
 interface NewUser {
@@ -337,13 +451,20 @@ const pageSize = ref(10)
 const showAddUserModal = ref(false)
 const showEditUserModal = ref(false)
 const showViewUserModal = ref(false)
+const showQuotaModal = ref(false)
 const selectedUser = ref<User | null>(null)
+const selectedUserForQuota = ref<User | null>(null)
 
 // Advanced filter state
 const showAdvancedFilters = ref(false)
 const dateRange = ref<[number, number] | null>(null)
 const sortBy = ref<string>('createdAt')
 const sortOrder = ref<string>('desc')
+
+// Quota management state
+const showCustomLimitForm = ref(false)
+const customLimit = ref<number>(100)
+const updatingQuota = ref(false)
 
 const newUser = ref<NewUser>({
   email: '',
@@ -393,7 +514,13 @@ const users = computed(() => {
       id: userRole.role.id,
       name: userRole.role.name,
       description: userRole.role.description || ''
-    })) || []
+    })) || [],
+    // Add quota data - TODO: load from API
+    quota: {
+      dailyLimit: 100, // Default limit, should be loaded from API
+      dailyUsed: Math.floor(Math.random() * 100), // Mock data, should be loaded from API
+      remaining: 100 - Math.floor(Math.random() * 100) // Calculated
+    }
   }))
 })
 
@@ -437,6 +564,11 @@ interface LocalUser {
   fullName: string
   isActive: boolean
   roles: { id: number; name: string; description: string }[]
+  quota?: {
+    dailyLimit: number
+    dailyUsed: number
+    remaining: number
+  }
 }
 
 // Update user data interface
@@ -535,6 +667,51 @@ const confirmDeleteUser = (user: LocalUser) => {
   })
 }
 
+// Quota management handlers
+const showUserQuotaModal = (user: LocalUser) => {
+  selectedUser.value = user
+  selectedUserForQuota.value = user as User
+  showQuotaModal.value = true
+  showCustomLimitForm.value = false
+  if (user.quota?.dailyLimit) {
+    customLimit.value = user.quota.dailyLimit
+  }
+}
+
+const resetUserQuota = async () => {
+  if (!selectedUser.value?.id) return
+
+  updatingQuota.value = true
+  try {
+    // TODO: Call API to reset user quota
+    message.success('Đã reset quota thành công')
+    await loadUsersData()
+  } catch (error) {
+    console.error('Failed to reset quota:', error)
+    message.error('Lỗi khi reset quota')
+  } finally {
+    updatingQuota.value = false
+  }
+}
+
+const updateUserQuotaLimit = async () => {
+  if (!selectedUser.value?.id) return
+
+  updatingQuota.value = true
+  try {
+    // TODO: Call API to update user quota limit
+    message.success('Đã cập nhật giới hạn quota thành công')
+    await loadUsersData()
+    showCustomLimitForm.value = false
+    showQuotaModal.value = false
+  } catch (error) {
+    console.error('Failed to update quota limit:', error)
+    message.error('Lỗi khi cập nhật giới hạn quota')
+  } finally {
+    updatingQuota.value = false
+  }
+}
+
 const statusOptions = [
   { label: 'Active', value: 'active' },
   { label: 'Inactive', value: 'inactive' }
@@ -623,6 +800,46 @@ const columns: DataTableColumns<User> = [
     }
   },
   {
+    title: 'Daily Quota',
+    key: 'quota',
+    render: (row: User) => {
+      if (!row.quota) {
+        return h('span', { class: 'text-gray-400' }, 'Loading...')
+      }
+      return h('div', { class: 'text-sm' }, [
+        h('div', `${row.quota.dailyUsed}/${row.quota.dailyLimit === -1 ? '∞' : row.quota.dailyLimit}`),
+        h('div', { class: 'text-xs text-gray-500' },
+          row.quota.dailyLimit === -1 ? 'Unlimited' : `${row.quota.remaining} remaining`
+        )
+      ])
+    }
+  },
+  {
+    title: 'Quota Status',
+    key: 'quotaStatus',
+    render: (row: User) => {
+      if (!row.quota) return h('span', '-')
+
+      let type: 'success' | 'warning' | 'error' = 'success'
+      let text = 'Available'
+
+      if (row.quota.dailyLimit !== -1) {
+        const usagePercent = (row.quota.dailyUsed / row.quota.dailyLimit) * 100
+        if (usagePercent >= 100) {
+          type = 'error'
+          text = 'Exceeded'
+        } else if (usagePercent >= 80) {
+          type = 'warning'
+          text = 'Near Limit'
+        }
+      } else {
+        text = 'Unlimited'
+      }
+
+      return h(NTag, { type, size: 'small' }, { default: () => text })
+    }
+  },
+  {
     title: 'Status',
     key: 'status',
     render: (row: User) => h('div', { class: 'flex items-center gap-2' }, [
@@ -655,6 +872,13 @@ const columns: DataTableColumns<User> = [
       }, {
         default: () => 'Edit',
         icon: () => h('n-icon', null, { default: () => h(Create) })
+      }),
+      h(NButton, {
+        size: 'small',
+        type: 'info',
+        onClick: () => showUserQuotaModal(row as LocalUser)
+      }, {
+        default: () => 'Quota'
       }),
       h(NButton, {
         size: 'small',

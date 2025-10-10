@@ -37,12 +37,12 @@
 
 <script setup lang="ts">
 import {
-  BriefcaseIcon,
   DashboardIcon,
   FileSearchIcon,
   ShieldIcon,
   UploadIcon,
-  UserIcon
+  UserIcon,
+  SettingsIcon
 } from '@/components/common/Icons.vue'
 import { usePermissions } from '@/composables/usePermissions'
 import { useAuthStore } from '@/stores/auth'
@@ -54,7 +54,7 @@ import { useRoute, useRouter } from 'vue-router'
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
-const { canUpload, canManageUsers, canManageRoles, hasAnyRole } = usePermissions()
+const { canUpload, canManageUsers, canManageRoles, canManageSettings, hasAnyRole } = usePermissions()
 
 // Force re-render trigger
 const menuTrigger = ref(0)
@@ -83,14 +83,9 @@ const allMenuOptions: MenuOption[] = [
     icon: FileSearchIcon
   },
   {
-    label: 'Upload Data',
+    label: 'Upload & Jobs',
     key: 'upload',
     icon: UploadIcon
-  },
-  {
-    label: 'Job Management',
-    key: 'jobs',
-    icon: BriefcaseIcon
   },
   {
     label: 'User Management',
@@ -101,6 +96,11 @@ const allMenuOptions: MenuOption[] = [
     label: 'Role Management',
     key: 'roles',
     icon: ShieldIcon
+  },
+  {
+    label: 'Settings',
+    key: 'settings',
+    icon: SettingsIcon
   }
 ]
 
@@ -132,19 +132,11 @@ const menuOptions = computed(() => {
     }
   }
 
-  // Show Upload Data for users with upload permission
+  // Show Upload & Jobs for users with upload permission
   if (canUpload.value) {
     const uploadOption = allMenuOptions.find(option => option.key === 'upload')
     if (uploadOption) {
       filteredOptions.push(uploadOption)
-    }
-  }
-
-  // Show Job Management for Admin and Manager roles
-  if (hasAnyRole(['Admin', 'Manager'])) {
-    const jobsOption = allMenuOptions.find(option => option.key === 'jobs')
-    if (jobsOption) {
-      filteredOptions.push(jobsOption)
     }
   }
 
@@ -161,6 +153,14 @@ const menuOptions = computed(() => {
     const rolesOption = allMenuOptions.find(option => option.key === 'roles')
     if (rolesOption) {
       filteredOptions.push(rolesOption)
+    }
+  }
+
+  // Show Settings for users with settings management permission
+  if (canManageSettings.value) {
+    const settingsOption = allMenuOptions.find(option => option.key === 'settings')
+    if (settingsOption) {
+      filteredOptions.push(settingsOption)
     }
   }
 

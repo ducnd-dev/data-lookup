@@ -149,9 +149,6 @@ export default function LoginPage() {
                     Ghi nhớ đăng nhập
                   </Label>
                 </div>
-                <Link href="/forgot-password" className="text-sm text-blue-600 hover:text-blue-500">
-                  Quên mật khẩu?
-                </Link>
               </div>
 
               {/* Submit Button */}
