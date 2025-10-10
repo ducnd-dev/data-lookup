@@ -62,6 +62,9 @@ export class FileProcessor {
     const { data, userId, batchSize = 1000 } = job.data;
     const jobId = job.id.toString();
     
+    let totalInserted = 0; // Track actual inserted records
+    let totalSkipped = 0;  // Track skipped duplicates
+    
     try {
       // Update job status to processing
       await this.prisma.jobStatus.upsert({
@@ -105,7 +108,7 @@ export class FileProcessor {
             phone: phone ? String(phone).trim() : null,
             address: address ? String(address).trim() : null,
           };
-        }).filter(item => item.uid || item.phone || item.address); // Only insert rows with at least one value
+        }).filter(item => item.uid && item.phone); // Only insert rows with both uid and phone
 
         // Filter out records that already exist (check for uid+phone combination)
         // Use bulk query to check duplicates for better performance
@@ -161,6 +164,10 @@ export class FileProcessor {
 
         console.log(`Batch ${Math.floor(i/batchSize) + 1}: ${newRecords.length} new records, ${duplicateRecords.length} duplicates skipped`);
 
+        // Update counters
+        totalInserted += newRecords.length;
+        totalSkipped += duplicateRecords.length;
+
         // Batch insert only new records
         if (newRecords.length > 0) {
           await this.prisma.lookupData.createMany({
@@ -186,12 +193,24 @@ export class FileProcessor {
         where: { id: jobId },
         data: { 
           status: 'completed',
-          processedRows: data.length,
+          processedRows: totalInserted, // Use actual inserted count
         },
       });
 
-      job.progress(100);
-      return { message: 'Data import completed', processedRows: data.length };
+      await job.progress(100);
+      
+      console.log(`Data import completed:`, {
+        totalProcessed: data.length,
+        totalInserted,
+        totalSkipped,
+      });
+      
+      return { 
+        message: 'Data import completed', 
+        processedRows: data.length,
+        insertedRows: totalInserted,
+        skippedRows: totalSkipped,
+      };
       
     } catch (error) {
       await this.prisma.jobStatus.update({
