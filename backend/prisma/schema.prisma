@@ -81,10 +81,13 @@ model JobStatus {
   jobType     String   @map("job_type")
   status      String   // pending, processing, completed, failed
   fileName    String?  @map("file_name")
+  originalFileName String? @map("original_file_name")
   resultPath  String?  @map("result_path")
   errorMsg    String?  @map("error_msg")
   totalRows   Int?     @map("total_rows")
   processedRows Int?   @map("processed_rows")
+  createdCount Int?    @default(0) @map("created_count")
+  updatedCount Int?    @default(0) @map("updated_count")
   createdBy   Int      @map("created_by")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")

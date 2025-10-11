@@ -45,9 +45,9 @@ api.interceptors.response.use(
       localStorage.removeItem('accessToken')
       localStorage.removeItem('refreshToken')
       localStorage.removeItem('user')
-      
+
       console.log('401 Unauthorized - redirecting to login')
-      
+
       // Redirect to login if not already there
       if (window.location.pathname !== '/login') {
         console.warn('Session expired. Redirecting to login...')
@@ -74,11 +74,11 @@ export const apiCall = async <T = any>(
     return { data: response.data, success: true }
   } catch (error: any) {
     let errorMessage = 'An error occurred'
-    
+
     if (error.response) {
       const status = error.response.status
       const responseMessage = error.response.data?.message
-      
+
       switch (status) {
         case 401:
           errorMessage = 'Your session has expired. Please login again.'
@@ -100,9 +100,82 @@ export const apiCall = async <T = any>(
     } else {
       errorMessage = error.message || 'An unexpected error occurred'
     }
-    
+
     console.error('API call failed:', errorMessage, error)
     return { data: null as any, success: false, error: errorMessage }
+  }
+}
+
+// Helper function for downloading files with proper headers and authentication
+export const apiDownload = async (url: string) => {
+  try {
+    const response = await api({
+      method: 'GET',
+      url,
+      responseType: 'blob'
+    })
+
+    // Get filename from Content-Disposition header if available
+    const contentDisposition = response.headers['content-disposition'] || response.headers['Content-Disposition']
+    let fileName = 'download'
+
+    console.log('Content-Disposition header:', contentDisposition)
+
+    if (contentDisposition) {
+      // Try multiple patterns for filename extraction
+      // Pattern 1: filename="something.ext"
+      let matches = contentDisposition.match(/filename="([^"]+)"/)
+      if (!matches) {
+        // Pattern 2: filename=something.ext (without quotes)
+        matches = contentDisposition.match(/filename=([^;]+)/)
+      }
+      if (!matches) {
+        // Pattern 3: filename*=UTF-8''encoded-filename
+        matches = contentDisposition.match(/filename\*=UTF-8''([^;]+)/)
+        if (matches && matches[1]) {
+          // URL decode the filename
+          fileName = decodeURIComponent(matches[1])
+        }
+      }
+      if (matches && matches[1] && !fileName.includes('download')) {
+        fileName = matches[1].trim()
+      }
+    }
+
+    console.log('Extracted filename:', fileName)
+
+    return {
+      success: true,
+      data: {
+        blob: response.data,
+        fileName,
+        headers: response.headers
+      }
+    }
+  } catch (error: any) {
+    let errorMessage = 'Download failed'
+
+    if (error.response) {
+      const status = error.response.status
+      const responseMessage = error.response.data?.message
+
+      switch (status) {
+        case 401:
+          errorMessage = 'Your session has expired. Please login again.'
+          break
+        case 403:
+          errorMessage = 'You do not have permission to download this file'
+          break
+        case 404:
+          errorMessage = 'File not found'
+          break
+        default:
+          errorMessage = responseMessage || `Download error ${status}`
+      }
+    }
+
+    console.error('Download failed:', errorMessage, error)
+    return { success: false, error: errorMessage }
   }
 }
 

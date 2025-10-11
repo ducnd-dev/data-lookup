@@ -197,12 +197,34 @@ export class DataImportController {
 
       console.log('📊 Sample data:', data[0]);
 
+      // Generate unique filename to avoid conflicts
+      const timestamp = Date.now();
+      const originalName = file.originalname;
+      const fileExtension = originalName.substring(
+        originalName.lastIndexOf('.'),
+      );
+      const fileNameWithoutExt = originalName.substring(
+        0,
+        originalName.lastIndexOf('.'),
+      );
+      const uniqueFileName = `${fileNameWithoutExt}_${timestamp}${fileExtension}`;
+
+      // Save uploaded file to uploads directory for later download
+      const uploadsDir = join(process.cwd(), 'uploads');
+      await fs.mkdir(uploadsDir, { recursive: true });
+      const savedFilePath = join(uploadsDir, uniqueFileName);
+      
+      // Write file content to uploads directory
+      await fs.writeFile(savedFilePath, fileBuffer);
+      console.log('💾 Saved file to:', savedFilePath);
+
       // Queue import job
       console.log('🚀 Queuing import job...');
       const result = await this.lookupService.batchInsertLookupData(
-        data, 
-        req.user.id, 
-        file.originalname
+        data,
+        req.user.id,
+        uniqueFileName, // Use unique filename for storage
+        file.originalname, // Keep original filename for download
       );
 
       console.log('✅ Success! Job ID:', result.jobId);
@@ -335,6 +357,46 @@ export class DataImportController {
       res.download(filePath);
     } catch (error) {
       res.status(404).json({ message: 'File not found' });
+    }
+  }
+
+  @Get('download-original/:jobId')
+  async downloadOriginalFile(@Param('jobId') jobId: string, @Res() res: Response) {
+    try {
+      // Get job info to find original file name
+      const jobStatus = await this.lookupService.getJobStatus(jobId);
+      
+      if (!jobStatus || !jobStatus.fileName) {
+        return res.status(404).json({ message: 'Original file not found or not available' });
+      }
+
+      // Check if original file still exists in uploads directory
+      const originalFilePath = join(process.cwd(), 'uploads', jobStatus.fileName);
+      
+      try {
+        await fs.access(originalFilePath);
+      } catch {
+        return res.status(404).json({ message: 'Original file no longer available' });
+      }
+
+      // Use originalFileName for download if available, otherwise use fileName
+      const downloadName = jobStatus.originalFileName || jobStatus.fileName;
+
+      console.log('Download info:', {
+        originalFilePath,
+        downloadName,
+        originalFileName: jobStatus.originalFileName,
+        fileName: jobStatus.fileName
+      });
+
+      // Set explicit headers for better compatibility
+      res.setHeader('Content-Disposition', `attachment; filename="${downloadName}"`);
+      res.setHeader('Content-Type', 'application/octet-stream');
+      
+      // Download the original file with original name
+      res.download(originalFilePath, downloadName);
+    } catch (error) {
+      res.status(500).json({ message: 'Error downloading file', error: (error as Error).message });
     }
   }
 }

@@ -25,7 +25,7 @@ export class JobController {
   findAll(@Query() query: any) {
     return this.jobService.findAll(query);
   }
-
+  
   @Get('stats')
   @RequirePermissions('job:read')
   getStats() {

@@ -154,25 +154,39 @@
           <!-- Results -->
           <n-card v-if="selectedJob.result" title="Results" size="small">
             <n-descriptions :column="2" bordered>
-              <n-descriptions-item label="Records Processed">{{ selectedJob.result.recordsProcessed || 0 }}</n-descriptions-item>
-              <n-descriptions-item label="Successful Records">
+              <!-- Import Results (Created/Updated) -->
+              <n-descriptions-item label="Records Created" v-if="(selectedJob.result as any)?.createdCount !== undefined">
+                <span class="text-blue-600 font-medium">{{ (selectedJob.result as any)?.createdCount || 0 }}</span>
+              </n-descriptions-item>
+              <n-descriptions-item label="Records Updated" v-if="(selectedJob.result as any)?.updatedCount !== undefined">
+                <span class="text-purple-600 font-medium">{{ (selectedJob.result as any)?.updatedCount || 0 }}</span>
+              </n-descriptions-item>
+
+              <!-- General Job Results -->
+              <n-descriptions-item label="Records Processed" v-if="selectedJob.result">{{ selectedJob.result.recordsProcessed || 0 }}</n-descriptions-item>
+              <n-descriptions-item label="Successful Records" v-if="selectedJob.result">
                 <span class="text-green-600 font-medium">{{ selectedJob.result.recordsSuccessful || 0 }}</span>
               </n-descriptions-item>
-              <n-descriptions-item label="Failed Records">
+              <n-descriptions-item label="Failed Records" v-if="selectedJob.result">
                 <span class="text-red-500 font-medium">{{ selectedJob.result.recordsFailed || 0 }}</span>
               </n-descriptions-item>
-              <n-descriptions-item label="Success Rate">
+              <n-descriptions-item label="Success Rate" v-if="selectedJob.result">
                 {{ selectedJob.result.recordsProcessed ? Math.round((selectedJob.result.recordsSuccessful || 0) / selectedJob.result.recordsProcessed * 100) : 0 }}%
               </n-descriptions-item>
-              <n-descriptions-item label="Output File" v-if="selectedJob.result.outputFile">
-                <n-button size="small" type="primary" @click="downloadOutput(selectedJob.result.outputFile)">
+              <n-descriptions-item label="Output File" v-if="selectedJob.result?.outputFile">
+                <n-button size="small" type="primary" @click="downloadOutputFile(selectedJob.result.outputFile)">
                   Download Output
+                </n-button>
+              </n-descriptions-item>
+              <n-descriptions-item label="Original File" v-if="selectedJob.metadata?.fileName && 'id' in selectedJob">
+                <n-button size="small" type="info" @click="downloadOriginalFile(String(selectedJob.id), selectedJob.metadata?.originalFileName)">
+                  Download Original
                 </n-button>
               </n-descriptions-item>
             </n-descriptions>
 
             <!-- Error Message -->
-            <div v-if="selectedJob.result.errorMessage" class="mt-4">
+            <div v-if="selectedJob.result?.errorMessage" class="mt-4">
               <h4 class="text-sm font-medium text-red-600 mb-2">Error Message:</h4>
               <div class="p-3 bg-red-50 border border-red-200 rounded text-sm text-red-700">
                 {{ selectedJob.result.errorMessage }}
@@ -183,7 +197,7 @@
           <!-- Metadata -->
           <n-card v-if="selectedJob.metadata" title="Metadata" size="small">
             <n-descriptions :column="2" bordered>
-              <n-descriptions-item label="File Name" v-if="selectedJob.metadata.fileName">{{ selectedJob.metadata.fileName }}</n-descriptions-item>
+              <n-descriptions-item label="File Name" v-if="selectedJob.metadata.fileName">{{ selectedJob.metadata.originalFileName }}</n-descriptions-item>
               <n-descriptions-item label="Total Rows" v-if="selectedJob.metadata.totalRows">{{ selectedJob.metadata.totalRows }}</n-descriptions-item>
               <n-descriptions-item label="File Path" v-if="selectedJob.metadata.filePath">
                 <span class="text-xs font-mono text-gray-600">{{ selectedJob.metadata.filePath }}</span>
@@ -210,16 +224,10 @@
 
 <script setup lang="ts">
 import {
-  Archive,
   CloudUpload,
-  Document, Documents,
-  DocumentText,
+  Document,
   Download,
-  Grid,
-  Image,
-  Refresh,
-  Server,
-  TrendingUp
+  Refresh
 } from '@vicons/ionicons5'
 import {
   NButton,
@@ -256,9 +264,12 @@ interface JobItem {
     recordsFailed: number
     outputFile?: string | null
     errorMessage?: string | null
+    createdCount?: number
+    updatedCount?: number
   }
   metadata?: {
     fileName?: string
+    originalFileName?: string
     totalRows?: number
     filePath?: string
   }
@@ -347,10 +358,13 @@ const selectedJob = ref<{
   startTime?: string,
   endTime?: string,
   createdBy?: string,
+  createdCount?: number,
+  updatedCount?: number,
   metadata?: {
     fileName?: string
     totalRows?: number
     filePath?: string
+    originalFileName?: string
   },
   result?: {
     recordsProcessed: number
@@ -408,13 +422,6 @@ const filteredCombinedData = computed(() => {
   return combinedData.value
 })
 
-// Statistics
-const uploadStats = computed(() => ({
-  totalFiles: recentUploads.value.length,
-  storageUsed: Math.round(recentUploads.value.reduce((sum, file) => sum + file.size, 0) / (1024 * 1024)),
-  successRate: 98.5
-}))
-
 // Pagination computed values
 const totalItems = computed(() => {
   // For jobs, use API pagination data if available
@@ -439,35 +446,43 @@ function handlePageSizeChange(size: number) {
 }
 
 // Combined columns for unified table
-const combinedColumns: DataTableColumns<{
-  type: 'upload' | 'job',
-  displayName: string,
-  status: string,
-  size?: number,
-  createdAt: string,
-  progress?: number,
-  originalType?: string,
-  description?: string,
-  startTime?: string,
-  endTime?: string,
-  createdBy?: string,
+// Define job type interface
+interface CombinedJobItem {
+  id: string
+  type: 'upload' | 'job'
+  displayName: string
+  status: string
+  size?: number
+  createdAt: string
+  progress?: number
+  originalType?: string
+  description?: string
+  startTime?: string
+  endTime?: string
+  createdBy?: string
+  fileName?: string
   metadata?: {
     fileName?: string
+    originalFileName?: string
     totalRows?: number
-  },
+  }
   result?: {
     recordsProcessed: number
     recordsSuccessful: number
     recordsFailed: number
     outputFile?: string | null
     errorMessage?: string | null
+    createdCount?: number
+    updatedCount?: number
   }
-}> = [
+}
+
+const combinedColumns: DataTableColumns<CombinedJobItem> = [
   {
     title: 'Type',
     key: 'type',
     width: 100,
-    render: (row) => {
+    render: (row: CombinedJobItem) => {
       if (row.type === 'upload') {
         return h(NTag, { type: 'info', size: 'small' }, { default: () => 'Upload' })
       }
@@ -490,7 +505,7 @@ const combinedColumns: DataTableColumns<{
     title: 'Name',
     key: 'displayName',
     ellipsis: { tooltip: true },
-    render: (row) => {
+    render: (row: CombinedJobItem) => {
       return h('div', [
         h('div', { class: 'font-medium' }, row.displayName),
         row.description && h('div', { class: 'text-xs text-gray-500' }, row.description)
@@ -501,7 +516,7 @@ const combinedColumns: DataTableColumns<{
     title: 'Status',
     key: 'status',
     width: 120,
-    render: (row) => {
+    render: (row: CombinedJobItem) => {
       const statusConfig = {
         completed: { type: 'success', text: 'Completed' },
         pending: { type: 'warning', text: 'Pending' },
@@ -518,7 +533,7 @@ const combinedColumns: DataTableColumns<{
     title: 'Progress',
     key: 'progress',
     width: 120,
-    render: (row) => {
+    render: (row: CombinedJobItem) => {
       if (row.type === 'job' && typeof row.progress === 'number') {
         return h('div', [
           h(NProgress, {
@@ -535,17 +550,30 @@ const combinedColumns: DataTableColumns<{
   {
     title: 'Records/Size',
     key: 'records',
-    width: 120,
-    render: (row) => {
-      if (row.type === 'job' && row.result) {
-        const elements = [
-          h('div', { class: 'text-green-600' }, `✓ ${row.result.recordsSuccessful || 0}`),
-          h('div', { class: 'text-red-500' }, `✗ ${row.result.recordsFailed || 0}`),
-          h('div', { class: 'text-gray-500' }, `Total: ${row.result.recordsProcessed || 0}`)
-        ]
+    width: 240,
+    render: (row: CombinedJobItem) => {
+      if (row.type === 'job') {
+        const elements = []
+
+        // Show created/updated counts if available (for import jobs)
+        if (row.result?.createdCount !== undefined || row.result?.updatedCount !== undefined) {
+          elements.push(
+            h('div', { class: 'text-blue-600' }, `➕ Created: ${row.result?.createdCount || 0}`),
+            h('div', { class: 'text-purple-600' }, `🔄 Updated: ${row.result?.updatedCount || 0}`)
+          )
+        }
+
+        // Show success/failed counts if available (for other jobs)
+        if (row.result) {
+          elements.push(
+            // fail count
+            h('div', { class: 'text-red-500' }, `❌ Failed: ${row.result.recordsFailed || 0}`),
+            h('div', { class: 'text-gray-500' }, `Total: ${row.result.recordsProcessed || 0}`)
+          )
+        }
 
         // Add error message if exists
-        if (row.result.errorMessage) {
+        if (row.result?.errorMessage) {
           elements.push(h('div', {
             class: 'text-red-600 text-xs mt-1 font-medium',
             title: row.result.errorMessage
@@ -564,7 +592,7 @@ const combinedColumns: DataTableColumns<{
     title: 'Time Info',
     key: 'timeInfo',
     width: 160,
-    render: (row) => {
+    render: (row: CombinedJobItem) => {
       if (row.type === 'job') {
         return h('div', { class: 'text-xs space-y-1' }, [
           h('div', `Created: ${new Date(row.createdAt).toLocaleString()}`),
@@ -579,7 +607,7 @@ const combinedColumns: DataTableColumns<{
     title: 'Created By',
     key: 'createdBy',
     width: 100,
-    render: (row) => {
+    render: (row: CombinedJobItem) => {
       if (row.type === 'job' && row.createdBy) {
         return h('div', { class: 'text-sm' }, `User ${row.createdBy}`)
       }
@@ -590,7 +618,7 @@ const combinedColumns: DataTableColumns<{
     title: 'Metadata',
     key: 'metadata',
     width: 120,
-    render: (row) => {
+    render: (row: CombinedJobItem) => {
       if (row.type === 'job' && row.metadata) {
         return h('div', { class: 'text-xs space-y-1' }, [
           row.metadata.fileName && h('div', `File: ${row.metadata.fileName}`),
@@ -603,9 +631,9 @@ const combinedColumns: DataTableColumns<{
   {
     title: 'Actions',
     key: 'actions',
-    width: 120,
+    width: 220,
     fixed: 'right',
-    render: (row) => {
+    render: (row: CombinedJobItem) => {
       if (row.type === 'upload') {
         return h('div', { class: 'flex gap-1' }, [
           h(NButton, {
@@ -616,30 +644,62 @@ const combinedColumns: DataTableColumns<{
           }, { default: () => 'Download' })
         ])
       } else {
-        return h('div', { class: 'flex gap-1' }, [
+        const buttons = [
           h(NButton, {
             size: 'small',
             type: 'primary',
             ghost: true,
-            onClick: () => showJobDetails(row)
-          }, { default: () => 'View' }),
-          row.result?.outputFile && h(NButton, {
-            size: 'small',
-            type: 'success',
-            ghost: true,
-            onClick: () => message.info(`Download output: ${row.result?.outputFile}`)
-          }, { default: () => 'Output' })
-        ])
+            onClick: () => showJobDetails(row),
+            title: 'View job details'
+          }, {
+            default: () => '👁️ View',
+            icon: () => h('span', '📋')
+          })
+        ]
+
+        // Add download original file button if job has fileName
+        if (row.metadata?.fileName && 'id' in row) {
+          buttons.push(
+            h(NButton, {
+              size: 'small',
+              type: 'info',
+              ghost: true,
+              onClick: () => downloadOriginalFile(String(row.id), row.metadata?.originalFileName),
+              title: `Download original file: ${row.metadata?.originalFileName || row.metadata?.fileName}`
+            }, {
+              default: () => '📥 Original',
+              icon: () => h('span', '📁')
+            })
+          )
+        }
+
+        // Add download output button if job has output file
+        if (row.result?.outputFile) {
+          buttons.push(
+            h(NButton, {
+              size: 'small',
+              type: 'success',
+              ghost: true,
+              onClick: () => downloadOutputFile(row.result?.outputFile || null),
+              title: 'Download processed result file'
+            }, {
+              default: () => '📤 Result',
+              icon: () => h('span', '📊')
+            })
+          )
+        }
+
+        return h('div', { class: 'flex gap-1 flex-wrap' }, buttons)
       }
     }
   }
 ]
 
 // Refresh data function
-function refreshData() {
-  // Refresh recent uploads (could be fetched from API)
-  loadRecentUploads()
-  fetchJobs()
+async function refreshData() {
+  // Refresh data from API
+  await loadRecentUploads()
+  await fetchJobs()
 }
 
 // Show job details
@@ -675,26 +735,64 @@ function calculateDuration(startTime: string, endTime: string) {
   return `${minutes}m ${seconds}s`
 }
 
-function downloadOutput(outputFile: string | null) {
-  if (outputFile) {
-    message.info(`Downloading: ${outputFile}`)
-    // Implement actual download logic here
+// Download original uploaded file
+async function downloadOriginalFile(jobId: string, originalFileName?: string) {
+  try {
+    const result = await jobApi.downloadOriginalFile(jobId)
+    if (result.success && result.data) {
+      const { blob, fileName } = result.data
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = originalFileName || fileName
+      document.body.appendChild(link)
+      link.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(link)
+      message.success('Original file downloaded successfully')
+    } else {
+      message.error(result.error || 'Failed to download original file')
+    }
+  } catch (error) {
+    console.error('Download error:', error)
+    message.error('Failed to download original file')
   }
 }
 
-// Load recent uploads (mock data for now)
-function loadRecentUploads() {
-  // This could be replaced with actual API call
-  recentUploads.value = [
-    {
-      id: 1,
-      name: 'sample-data.xlsx',
-      size: 2048576,
-      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      uploadedAt: new Date().toISOString(),
-      status: 'completed'
+// Download output file
+async function downloadOutputFile(outputFile: string | null) {
+  if (outputFile) {
+    try {
+      // Extract jobId from outputFile if needed, or use a different approach
+      const jobIdMatch = outputFile.match(/job_(\d+)/)
+      const jobId = jobIdMatch ? jobIdMatch[1] : '0'
+
+      const result = await jobApi.downloadResultFile(jobId || '0')
+      if (result.success && result.data) {
+        const { blob, fileName } = result.data
+        const url = window.URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.href = url
+        link.download = fileName
+        document.body.appendChild(link)
+        link.click()
+        window.URL.revokeObjectURL(url)
+        document.body.removeChild(link)
+        message.success('Output file downloaded successfully')
+      } else {
+        message.error(result.error || 'Failed to download output file')
+      }
+    } catch (error) {
+      console.error('Download error:', error)
+      message.error('Failed to download output file')
     }
-  ]
+  }
+}
+
+// Load recent uploads from API
+async function loadRecentUploads() {
+  // Remove mock data - all upload history is now tracked through jobs API
+  recentUploads.value = []
 }
 
 // Methods
@@ -722,13 +820,18 @@ function beforeUpload(options: { file: UploadFileInfo, fileList: UploadFileInfo[
   // Real API upload instead of simulation
   if (file.file) {
     uploadApi.uploadDataFile(file.file)
-      .then((response: { success: boolean, rowsCount?: number, message?: string }) => {
+      .then((response: { success: boolean, rowsCount?: number, message?: string, jobId?: string }) => {
         const fileIndex = uploadProgress.value.findIndex(f => f.id === uploadFile.id)
         if (fileIndex !== -1 && uploadProgress.value[fileIndex]) {
           if (response.success) {
             uploadProgress.value[fileIndex]!.progress = 100
             uploadProgress.value[fileIndex]!.status = 'success'
             message.success(`✅ ${file.name} uploaded successfully! ${response.rowsCount} rows processed.`)
+
+            // Refresh jobs to show the new job
+            setTimeout(() => {
+              fetchJobs()
+            }, 1000)
           } else {
             uploadProgress.value[fileIndex]!.status = 'error'
             message.error(`❌ Upload failed: ${response.message}`)
@@ -748,18 +851,8 @@ function beforeUpload(options: { file: UploadFileInfo, fileList: UploadFileInfo[
 }
 
 function onUploadFinish(options: { file: UploadFileInfo, event?: ProgressEvent }) {
+  // Upload is handled in beforeUpload, this is just for fallback
   message.success(`${options.file.name} uploaded successfully`)
-
-  // Add to recent uploads
-  const newUpload: RecentUpload = {
-    id: Date.now(),
-    name: options.file.name,
-    size: options.file.file?.size || 0,
-    type: getFileType(options.file.name),
-    uploadedAt: new Date().toLocaleString(),
-    status: 'Success'
-  }
-  recentUploads.value.unshift(newUpload)
 }
 
 function onRemove(options: { file: UploadFileInfo, fileList: UploadFileInfo[] }) {
@@ -789,28 +882,12 @@ function getFileIconClass(type: string): string {
   return typeMap[type] || 'text-gray-500'
 }
 
-function getFileType(fileName: string): string {
-  const ext = fileName.split('.').pop()?.toLowerCase()
-  const typeMap: Record<string, string> = {
-    'jpg': 'Image', 'jpeg': 'Image', 'png': 'Image', 'gif': 'Image',
-    'pdf': 'PDF',
-    'doc': 'Document', 'docx': 'Document',
-    'xls': 'Spreadsheet', 'xlsx': 'Spreadsheet', 'csv': 'Spreadsheet',
-    'zip': 'Archive', 'rar': 'Archive', '7z': 'Archive'
-  }
-  return typeMap[ext || ''] || 'Unknown'
-}
-
 function formatFileSize(bytes: number): string {
   if (bytes === 0) return '0 Bytes'
   const k = 1024
   const sizes = ['Bytes', 'KB', 'MB', 'GB']
   const i = Math.floor(Math.log(bytes) / Math.log(k))
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
-}
-
-function filterByType(type: string) {
-  message.info(`Filtering by ${type} files`)
 }
 
 // Download example file function
@@ -850,8 +927,8 @@ watch([currentPage, pageSize], () => {
 })
 
 // Initialize data when component mounts
-onMounted(() => {
-  loadRecentUploads()
-  fetchJobs()
+onMounted(async () => {
+  await loadRecentUploads()
+  await fetchJobs()
 })
 </script>

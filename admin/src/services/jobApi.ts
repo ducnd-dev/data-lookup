@@ -1,4 +1,4 @@
-import { apiCall } from './api'
+import { apiCall, apiDownload } from './api'
 
 // Job interfaces
 export interface Job {
@@ -70,6 +70,29 @@ export const jobApi = {
     return await apiCall({
       method: 'GET',
       url
+    })
+  },
+
+  // Get real JobStatus data with created/updated counts and original filename
+  async getJobStatusList(query: JobQuery = {}) {
+    const searchParams = new URLSearchParams()
+
+    if (query.page) searchParams.set('page', query.page.toString())
+    if (query.limit) searchParams.set('limit', query.limit.toString())
+
+    const url = `/lookup/jobs${searchParams.toString() ? `?${searchParams.toString()}` : ''}`
+
+    return await apiCall({
+      method: 'GET',
+      url
+    })
+  },
+
+  // Get single JobStatus by ID
+  async getJobStatusById(jobId: string) {
+    return await apiCall({
+      method: 'GET',
+      url: `/lookup/job/${jobId}`
     })
   },
 
@@ -178,6 +201,30 @@ export const jobApi = {
       method: 'POST',
       url: '/jobs/templates/seed'
     })
+  },
+
+  // Download original uploaded file
+  async downloadOriginalFile(jobId: string | number) {
+    return await apiDownload(`/data-import/download-original/${jobId}`)
+  },
+
+  // Download result/output file
+  async downloadResultFile(jobId: string | number) {
+    try {
+      // First get job info to find the output file name using apiCall
+      const jobResponse = await this.getJobById(String(jobId))
+      if (!jobResponse.success || !jobResponse.data?.result?.outputFile) {
+        throw new Error('No output file available for this job')
+      }
+
+      const outputFileName = jobResponse.data.result.outputFile
+      return await apiDownload(`/data-import/download/${outputFileName}`)
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Download failed'
+      }
+    }
   }
 }
 

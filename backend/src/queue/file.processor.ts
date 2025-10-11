@@ -59,11 +59,18 @@ export class FileProcessor {
 
   @Process('data-import')
   async handleDataImport(job: Job) {
-    const { data, userId, batchSize = 1000 } = job.data;
+    const { data, userId, fileName, originalFileName, batchSize = 100 } = job.data as {
+      data: any[];
+      userId: number;
+      fileName?: string;
+      originalFileName?: string;
+      batchSize?: number;
+    };
     const jobId = job.id.toString();
     
-    let totalInserted = 0; // Track actual inserted records
-    let totalSkipped = 0;  // Track skipped duplicates
+    let totalInserted = 0; // Track new records inserted
+    let totalUpdated = 0;  // Track existing records updated
+    let totalErrors = 0;   // Track failed operations
     
     try {
       // Update job status to processing
@@ -78,6 +85,8 @@ export class FileProcessor {
           id: jobId,
           jobType: 'data_import',
           status: 'processing',
+          fileName: fileName || null,
+          originalFileName: originalFileName || null,
           createdBy: userId,
           totalRows: data.length,
           processedRows: 0,
@@ -86,106 +95,94 @@ export class FileProcessor {
 
       job.progress(10);
       
-      // Process data in batches
+      // Process data in batches with upsert logic
       for (let i = 0; i < data.length; i += batchSize) {
         const batch = data.slice(i, i + batchSize);
         
         // Transform data for Prisma - flexible field mapping
         const lookupData = batch.map((row: any) => {
-          // Try multiple field name variations
-          const uid = row.uid || row.user_id || row.id || row.userId || 
-                     row.col_a || row.colA || row.a || row.column_a || 
-                     row.field_a || row.value_a || null;
-          const phone = row.phone || row.phone_number || row.phoneNumber || row.tel ||
-                       row.col_b || row.colB || row.b || row.column_b || 
-                       row.field_b || row.value_b || null;
-          const address = row.address || row.addr || row.location || row.street ||
-                         row.col_c || row.colC || row.c || row.column_c || 
-                         row.field_c || row.value_c || null;
+          // Get all field names from the row
+          const fieldNames = Object.keys(row).map(key => key.toLowerCase());
+          
+          // Find fields using includes pattern matching
+          const uidField = fieldNames.find(name => 
+            ['uid', 'user_id', 'userid', 'id'].some(pattern => name.includes(pattern)) ||
+            ['col_a', 'cola', 'column_a', 'field_a', 'value_a'].some(pattern => name.includes(pattern))
+          );
+          const phoneField = fieldNames.find(name => 
+            ['phone', 'tel', 'mobile'].some(pattern => name.includes(pattern)) ||
+            ['col_b', 'colb', 'column_b', 'field_b', 'value_b'].some(pattern => name.includes(pattern))
+          );
+          const nameField = fieldNames.find(name => 
+            ['name', 'fullname', 'full_name', 'username', 'display_name', 'displayname', 'title'].some(pattern => name.includes(pattern)) ||
+            ['col_c', 'colc', 'column_c', 'field_c', 'value_c'].some(pattern => name.includes(pattern))
+          );
+          const addressField = fieldNames.find(name => 
+            ['address', 'addr', 'location', 'street'].some(pattern => name.includes(pattern)) ||
+            ['col_d', 'cold', 'column_d', 'field_d', 'value_d'].some(pattern => name.includes(pattern))
+          );
+          
+          // Get original field names (preserving case) for data extraction
+          const originalKeys = Object.keys(row);
+          const getOriginalKey = (foundField: string | undefined) => 
+            foundField ? originalKeys.find(key => key.toLowerCase() === foundField) : undefined;
+          
+          const uid = uidField ? row[getOriginalKey(uidField)!] : null;
+          const phone = phoneField ? row[getOriginalKey(phoneField)!] : null;
+          const name = nameField ? row[getOriginalKey(nameField)!] : null;
+          const address = addressField ? row[getOriginalKey(addressField)!] : null;
           
           return {
             uid: uid ? String(uid).trim() : null,
             phone: phone ? String(phone).trim() : null,
+            name: name ? String(name).trim() : null,
             address: address ? String(address).trim() : null,
           };
-        }).filter(item => item.uid && item.phone); // Only insert rows with both uid and phone
+        }).filter(item => item.uid && item.phone); // Only process rows with both uid and phone
 
-        // Filter out records that already exist (check for uid+phone combination)
-        // Use bulk query to check duplicates for better performance
-        const newRecords: any[] = [];
-        const duplicateRecords: any[] = [];
-        
-        if (lookupData.length > 0) {
-          // Build conditions for bulk check
-          const uidPhonePairs = lookupData
-            .filter(record => record.uid && record.phone)
-            .map(record => ({ 
-              uid: String(record.uid).trim(), 
-              phone: String(record.phone).trim() 
-            }));
-          
-          let existingRecords: any[] = [];
-          if (uidPhonePairs.length > 0) {
-            // Bulk check for existing uid+phone combinations
-            existingRecords = await this.prisma.lookupData.findMany({
+        // Process each record with upsert logic
+        for (const record of lookupData) {
+          try {
+            const result = await this.prisma.lookupData.upsert({
               where: {
-                OR: uidPhonePairs.map(pair => ({
-                  AND: [
-                    { uid: pair.uid },
-                    { phone: pair.phone }
-                  ]
-                }))
+                unique_uid_phone: {
+                  uid: record.uid!,
+                  phone: record.phone!,
+                }
               },
-              select: { uid: true, phone: true }
+              update: {
+                name: record.name,
+                address: record.address,
+                updatedAt: new Date(),
+              },
+              create: record,
             });
-          }
-          
-          // Create a Set for O(1) lookup
-          const existingPairs = new Set(
-            existingRecords.map(record => `${record.uid}|${record.phone}`)
-          );
-          
-          // Filter records
-          for (const record of lookupData) {
-            // If both uid and phone exist, check if combination already exists
-            if (record.uid && record.phone) {
-              const pairKey = `${record.uid}|${record.phone}`;
-              if (existingPairs.has(pairKey)) {
-                duplicateRecords.push(record);
-              } else {
-                newRecords.push(record);
-              }
+
+            // Check if this was an insert or update by checking created vs updated timestamps
+            const isNewRecord = result.createdAt.getTime() === result.updatedAt.getTime();
+            if (isNewRecord) {
+              totalInserted++;
             } else {
-              // If only one field exists, allow insert (could be supplementary data)
-              newRecords.push(record);
+              totalUpdated++;
             }
+          } catch (error) {
+            console.error('Error processing record:', error);
+            totalErrors++;
           }
-        }
-
-        console.log(`Batch ${Math.floor(i/batchSize) + 1}: ${newRecords.length} new records, ${duplicateRecords.length} duplicates skipped`);
-
-        // Update counters
-        totalInserted += newRecords.length;
-        totalSkipped += duplicateRecords.length;
-
-        // Batch insert only new records
-        if (newRecords.length > 0) {
-          await this.prisma.lookupData.createMany({
-            data: newRecords,
-            skipDuplicates: true, // Additional safety net
-          });
         }
 
         const processedRows = Math.min(i + batchSize, data.length);
         const progress = 10 + (processedRows / data.length) * 80;
         
-        job.progress(progress);
+        await job.progress(progress);
         
         // Update progress in database
         await this.prisma.jobStatus.update({
           where: { id: jobId },
           data: { processedRows },
         });
+
+        console.log(`Batch ${Math.floor(i/batchSize) + 1}: ${lookupData.length} records processed, ${totalInserted} inserted, ${totalUpdated} updated, ${totalErrors} errors`);
       }
 
       // Mark as completed
@@ -193,7 +190,9 @@ export class FileProcessor {
         where: { id: jobId },
         data: { 
           status: 'completed',
-          processedRows: totalInserted, // Use actual inserted count
+          processedRows: totalInserted + totalUpdated, // Total successfully processed
+          createdCount: totalInserted,
+          updatedCount: totalUpdated,
         },
       });
 
@@ -202,14 +201,16 @@ export class FileProcessor {
       console.log(`Data import completed:`, {
         totalProcessed: data.length,
         totalInserted,
-        totalSkipped,
+        totalUpdated,
+        totalErrors,
       });
       
       return { 
         message: 'Data import completed', 
         processedRows: data.length,
         insertedRows: totalInserted,
-        skippedRows: totalSkipped,
+        updatedRows: totalUpdated,
+        errorRows: totalErrors,
       };
       
     } catch (error) {
@@ -520,6 +521,7 @@ export class FileProcessor {
         }
       },
       update: {
+        name: record.name,
         address: record.address,
         updatedAt: new Date(),
       },
