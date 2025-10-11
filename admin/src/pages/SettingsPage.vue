@@ -42,7 +42,7 @@
           </n-tab-pane>
 
           <!-- General Settings Tab -->
-          <n-tab-pane name="general" tab="General Settings">
+          <!-- <n-tab-pane name="general" tab="General Settings">
             <div class="space-y-6">
               <h2 class="text-xl font-semibold text-gray-900">General System Settings</h2>
 
@@ -82,7 +82,7 @@
                 </n-form-item>
               </n-form>
             </div>
-          </n-tab-pane>
+          </n-tab-pane> -->
         </n-tabs>
       </n-card>
 
@@ -434,11 +434,11 @@ const saveQuotaSetting = async () => {
   try {
     const key = `${quotaForm.value.roleName.toUpperCase()}_DAILY_LIMIT`
 
+    // Use PUT to upsert instead of POST to create
     const response = await apiCall({
-      method: 'POST',
-      url: '/settings',
+      method: 'PUT',
+      url: `/settings/${key}`,
       data: {
-        key,
         value: quotaForm.value.dailyLimit.toString(),
         type: 'number',
         description: quotaForm.value.description,
@@ -472,7 +472,9 @@ const updateQuotaSetting = async () => {
       url: `/settings/${editQuotaForm.value.key}`,
       data: {
         value: editQuotaForm.value.dailyLimit.toString(),
-        description: editQuotaForm.value.description
+        type: 'number',
+        description: editQuotaForm.value.description,
+        category: 'quota'
       }
     })
 
@@ -515,11 +517,21 @@ const deleteQuotaSetting = async (key: string) => {
 
 const updateGeneralSetting = async (key: string, value: string | number | boolean) => {
   try {
+    // Determine the correct type for the setting
+    let type = 'string'
+    if (typeof value === 'number') {
+      type = 'number'
+    } else if (typeof value === 'boolean') {
+      type = 'boolean'
+    }
+
     const response = await apiCall({
       method: 'PUT',
       url: `/settings/${key}`,
       data: {
-        value: typeof value === 'boolean' ? value.toString() : value.toString()
+        value: typeof value === 'boolean' ? value.toString() : value.toString(),
+        type,
+        category: 'general'
       }
     })
 

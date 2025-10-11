@@ -164,7 +164,6 @@ export class LookupController {
       throw new HttpException(
         {
           message: 'Daily lookup limit exceeded',
-          dailyLimit: quotaStatus.dailyLimit,
           dailyUsed: quotaStatus.dailyUsed,
           remaining: quotaStatus.remaining,
         },
