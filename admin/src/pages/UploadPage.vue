@@ -97,16 +97,7 @@
         <n-data-table
           :columns="combinedColumns"
           :data="filteredCombinedData"
-          :pagination="{
-            page: currentPage,
-            pageSize: pageSize,
-            showSizePicker: true,
-            pageSizes: [10, 15, 20, 50],
-            onChange: handlePageChange,
-            onUpdatePageSize: handlePageSizeChange,
-            itemCount: totalItems,
-            showQuickJumper: true
-          }"
+          :pagination="paginationConfig"
           :loading="loading || jobsLoading"
           :scroll-x="1200"
           striped
@@ -416,9 +407,30 @@ const combinedData = computed(() => {
 })
 
 const filteredCombinedData = computed(() => {
-  if (viewFilter.value === 'all') return combinedData.value
+  // For server-side pagination, return the jobs from current page directly
+  // Don't apply additional filtering here since backend handles pagination
+  if (viewFilter.value === 'jobs') {
+    return jobs.value.map((job: JobItem) => ({
+      ...job,
+      type: 'job' as const,
+      displayName: job.name,
+      createdAt: job.createdAt,
+      status: job.status,
+      progress: job.progress,
+      result: job.result,
+      originalType: job.type,
+      description: job.description,
+      startTime: job.startTime,
+      endTime: job.endTime,
+      createdBy: job.createdBy,
+      metadata: job.metadata
+    }))
+  }
+
+  // For uploads and "all" view, use the combined data (client-side)
   if (viewFilter.value === 'uploads') return combinedData.value.filter(item => item.type === 'upload')
-  if (viewFilter.value === 'jobs') return combinedData.value.filter(item => item.type === 'job')
+  if (viewFilter.value === 'all') return combinedData.value
+
   return combinedData.value
 })
 
@@ -433,16 +445,61 @@ const totalItems = computed(() => {
   return jobsTotal + uploadsTotal
 })
 
+// Pagination config
+const paginationConfig = computed(() => {
+  // For jobs view, use server-side pagination
+  if (viewFilter.value === 'jobs') {
+    return {
+      page: currentPage.value,
+      pageSize: pageSize.value,
+      showSizePicker: true,
+      pageSizes: [10, 15, 20, 50],
+      onChange: handlePageChange,
+      onUpdatePageSize: handlePageSizeChange,
+      itemCount: totalItems.value,
+      showQuickJumper: true
+    }
+  }
+
+  // For uploads view, use simple client-side pagination
+  if (viewFilter.value === 'uploads') {
+    return {
+      page: 1,
+      pageSize: 20,
+      showSizePicker: true,
+      pageSizes: [10, 20, 50],
+      showQuickJumper: false,
+      itemCount: totalItems.value
+    }
+  }
+
+  // For 'all' view, use client-side pagination with larger page size
+  return {
+    page: 1,
+    pageSize: 25,
+    showSizePicker: true,
+    pageSizes: [25, 50, 100],
+    showQuickJumper: true,
+    itemCount: totalItems.value
+  }
+})
+
 // Pagination handlers
 function handlePageChange(page: number) {
   currentPage.value = page
-  // fetchJobs() will be called by watcher
+  // Only fetch jobs if we're viewing jobs
+  if (viewFilter.value === 'jobs' || viewFilter.value === 'all') {
+    fetchJobs()
+  }
 }
 
 function handlePageSizeChange(size: number) {
   pageSize.value = size
   currentPage.value = 1 // Reset to first page
-  // fetchJobs() will be called by watcher
+  // Only fetch jobs if we're viewing jobs
+  if (viewFilter.value === 'jobs' || viewFilter.value === 'all') {
+    fetchJobs()
+  }
 }
 
 // Combined columns for unified table
@@ -928,8 +985,22 @@ watch([currentPage, pageSize], () => {
     clearTimeout(fetchTimeout)
   }
   fetchTimeout = setTimeout(() => {
-    fetchJobs()
+    // Only fetch jobs if we're viewing jobs or all
+    if (viewFilter.value === 'jobs' || viewFilter.value === 'all') {
+      fetchJobs()
+    }
   }, 100) // 100ms debounce
+})
+
+// Watch for view filter changes
+watch(viewFilter, (newFilter) => {
+  // Reset to first page when changing view
+  currentPage.value = 1
+
+  // Fetch jobs if switching to jobs or all view
+  if (newFilter === 'jobs' || newFilter === 'all') {
+    fetchJobs()
+  }
 })
 
 // Initialize data when component mounts
