@@ -8,8 +8,11 @@ import {
     Request,
     UseGuards,
     HttpException,
-    HttpStatus
+    HttpStatus,
+    Header,
+    Res
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { Type } from 'class-transformer';
 import { IsArray, IsIn, IsNumber, IsOptional, IsString, Max, Min, ValidateNested } from 'class-validator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -321,5 +324,44 @@ export class LookupController {
         userId,
       );
     }
+  }
+
+  @Post('export-excel')
+  @Header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+  async exportToExcel(@Body() dto: QueryLookupDto, @Request() req: any, @Res() res: Response): Promise<void> {
+    const userId = req.user.id;
+    
+    // Check quota before processing
+    const hasQuota = await this.quotaService.checkQuota(userId);
+    
+    if (!hasQuota) {
+      const quotaStatus = await this.quotaService.getQuotaStatus(userId);
+      throw new HttpException(
+        {
+          message: 'Daily lookup limit exceeded',
+          dailyUsed: quotaStatus.dailyUsed,
+          remaining: quotaStatus.remaining,
+        },
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
+    const buffer = await this.lookupService.generateExcelBuffer(
+      dto.colName,
+      dto.values,
+      dto.searchMode,
+      dto.startDate,
+      dto.endDate,
+    );
+
+    // Update quota usage
+    await this.quotaService.updateUsage(userId);
+
+    // Set filename in header
+    const filename = `lookup_export_${Date.now()}.xlsx`;
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    
+    // Send the buffer directly
+    res.send(buffer);
   }
 }

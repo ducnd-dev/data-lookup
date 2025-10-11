@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import * as XLSX from 'xlsx';
 import {
   FILE_UPLOAD_CONFIG,
   LOOKUP_COLUMN_MAP,
@@ -71,9 +72,14 @@ export class LookupService {
     const [results, total] = await Promise.all([
       this.prisma.lookupData.findMany({
         where: whereClause,
-        skip,
-        take: actualLimit,
-        orderBy: { createdAt: 'desc' },
+        // skip,
+        // take: actualLimit,
+        orderBy: [
+          // Ưu tiên các bản ghi có name không null trước
+          { name: { sort: 'asc', nulls: 'last' } },
+          // Sau đó sắp xếp theo thời gian tạo mới nhất
+          { createdAt: 'desc' },
+        ],
         select: {
           id: true,
           uid: true,
@@ -435,6 +441,207 @@ export class LookupService {
       searchColumn: colName,
       searchTerms,
     };
+  }
+
+  async exportToExcel(
+    colName: LookupColumnKey,
+    values: string[],
+    searchMode: 'exact' | 'partial' | 'fuzzy' = 'exact',
+    userId: number,
+  ) {
+    // Get all matching data without pagination
+    const dbColumnName = LOOKUP_COLUMN_MAP[colName];
+    const whereClause = this.buildSearchCondition(dbColumnName, values, searchMode);
+
+    // Group results theo requested values và trả về tất cả matches
+    const allResults = await this.prisma.lookupData.findMany({
+      where: whereClause,
+      orderBy: [
+        // Ưu tiên các bản ghi có name không null trước
+        { name: { sort: 'asc', nulls: 'last' } },
+        // Sau đó sắp xếp theo thời gian tạo mới nhất
+        { createdAt: 'desc' },
+      ],
+      select: {
+        id: true,
+        uid: true,
+        phone: true,
+        name: true,
+        address: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    // Group tất cả results theo input values
+    const resultsMap = new Map<string, any[]>();
+    allResults.forEach(result => {
+      const key = result[dbColumnName];
+      if (key != null) { // Check for null/undefined
+        if (!resultsMap.has(key)) {
+          resultsMap.set(key, []);
+        }
+        resultsMap.get(key)!.push(result);
+      }
+    });
+
+    // Tạo Excel data với format để export
+    const excelData: any[] = [];
+    
+    // Header row
+    excelData.push([
+      'STT',
+      'UID Tìm kiếm',
+      'UID Kết quả', 
+      'Số điện thoại',
+      'Tên',
+      'Địa chỉ',
+      'Trạng thái',
+      'Thứ tự',
+      'Tổng số bản ghi',
+      'Ngày tạo'
+    ]);
+
+    let stt = 1;
+    values.forEach(searchValue => {
+      const matches = resultsMap.get(searchValue) || [];
+      
+      if (matches.length === 0) {
+        // Không tìm thấy
+        excelData.push([
+          stt++,
+          searchValue,
+          '',
+          '',
+          '',
+          '',
+          'Không tìm thấy',
+          1,
+          0,
+          ''
+        ]);
+      } else {
+        // Tìm thấy - thêm tất cả matches
+        matches.forEach((match, index) => {
+          excelData.push([
+            stt++,
+            searchValue,
+            match.uid || '',
+            match.phone || '',
+            match.name || '',
+            match.address || '',
+            'Tìm thấy',
+            index + 1,
+            matches.length,
+            match.createdAt ? new Date(match.createdAt).toLocaleString('vi-VN') : ''
+          ]);
+        });
+      }
+    });
+
+    return {
+      success: true,
+      data: excelData,
+      summary: {
+        requestedCount: values.length,
+        foundRecords: allResults.length,
+        duplicateValues: Array.from(resultsMap.entries()).filter(([_, matches]) => matches.length > 1).length,
+        searchMode,
+        searchColumn: colName,
+        exportedAt: new Date().toISOString()
+      }
+    };
+  }
+
+  async generateExcelBuffer(
+    colName: LookupColumnKey,
+    values: string[],
+    searchMode: 'exact' | 'partial' | 'fuzzy' = 'exact',
+    startDate?: string,
+    endDate?: string
+  ): Promise<Buffer> {
+    try {
+      // Get lookup data without pagination limits for export
+      const dbColumnName = LOOKUP_COLUMN_MAP[colName];
+      const whereClause = this.buildSearchCondition(dbColumnName, values, searchMode);
+
+      // Add date filtering if provided
+      if (startDate || endDate) {
+        const dateFilter: any = {};
+        if (startDate) {
+          dateFilter.gte = new Date(startDate);
+        }
+        if (endDate) {
+          // Add one day to include the end date
+          const end = new Date(endDate);
+          end.setDate(end.getDate() + 1);
+          dateFilter.lt = end;
+        }
+        
+        // Combine with existing where clause
+        if (Object.keys(dateFilter).length > 0) {
+          Object.assign(whereClause, { createdAt: dateFilter });
+        }
+      }
+
+      const searchResults = await this.prisma.lookupData.findMany({
+        where: whereClause,
+        orderBy: [
+          // Ưu tiên các bản ghi có name không null trước
+          { name: { sort: 'asc', nulls: 'last' } },
+          // Sau đó sắp xếp theo thời gian tạo mới nhất
+          { createdAt: 'desc' },
+        ],
+        select: {
+          uid: true,
+          phone: true,
+          name: true,
+          address: true,
+        },
+      });
+
+      // Prepare data for Excel
+      const excelData = [
+        // Header row
+        ['uid', 'phone', 'name', 'address']
+      ];
+
+      // Add data rows
+      searchResults.forEach((item: any) => {
+        excelData.push([
+          item.uid || '',
+          item.phone || '',
+          item.name || '',
+          item.address || ''
+        ]);
+      });
+
+      // Create workbook and worksheet
+      const workbook = XLSX.utils.book_new();
+      const worksheet = XLSX.utils.aoa_to_sheet(excelData);
+
+      // Set column widths
+      worksheet['!cols'] = [
+        { width: 20 }, // UID
+        { width: 15 }, // Phone
+        { width: 30 }, // Name
+        { width: 50 }  // Address
+      ];
+
+      // Add worksheet to workbook
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Lookup Results');
+
+      // Generate Excel file buffer
+      const buffer = XLSX.write(workbook, { 
+        type: 'buffer', 
+        bookType: 'xlsx' 
+      });
+
+      return buffer;
+    } catch (error) {
+      console.error('Error creating Excel file:', error);
+      throw new Error('Failed to create Excel file');
+    }
   }
 
   // Helper methods for search functionality

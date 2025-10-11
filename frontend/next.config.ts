@@ -21,7 +21,7 @@ const nextConfig: NextConfig = {
     return [
       {
         source: '/api/:path*',
-        destination: 'http://localhost:3000/api/:path*', // Proxy to backend NestJS
+        destination: `${process.env.BACKEND_URL || 'http://backend:3000'}/api/:path*`, // Proxy to backend NestJS
       },
     ]
   },

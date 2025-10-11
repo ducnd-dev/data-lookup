@@ -169,7 +169,7 @@
                   Download Output
                 </n-button>
               </n-descriptions-item>
-              <n-descriptions-item label="Original File" v-if="selectedJob.metadata?.fileName && 'id' in selectedJob">
+              <n-descriptions-item label="Original File" v-if="selectedJob.metadata?.originalFileName && 'id' in selectedJob">
                 <n-button size="small" type="info" @click="downloadOriginalFile(String(selectedJob.id), selectedJob.metadata?.originalFileName)">
                   Download Original
                 </n-button>
@@ -714,15 +714,15 @@ const combinedColumns: DataTableColumns<CombinedJobItem> = [
           })
         ]
 
-        // Add download original file button if job has fileName
-        if (row.metadata?.fileName && 'id' in row) {
+        // Add download original file button if job has originalFileName (real uploaded file)
+        if (row.metadata?.originalFileName && 'id' in row) {
           buttons.push(
             h(NButton, {
               size: 'small',
               type: 'info',
               ghost: true,
               onClick: () => downloadOriginalFile(String(row.id), row.metadata?.originalFileName),
-              title: `Download original file: ${row.metadata?.originalFileName || row.metadata?.fileName}`
+              title: `Download original file: ${row.metadata?.originalFileName}`
             }, {
               default: () => '📥 Original',
               icon: () => h('span', '📁')
@@ -730,7 +730,10 @@ const combinedColumns: DataTableColumns<CombinedJobItem> = [
           )
         }
 
-        // Add download output button if job has output file
+        // Note: Download output/result file is not supported yet by backend
+        // Backend only supports downloading original uploaded files
+        // Uncomment when backend adds download-result endpoint
+        /*
         if (row.result?.outputFile) {
           buttons.push(
             h(NButton, {
@@ -745,6 +748,7 @@ const combinedColumns: DataTableColumns<CombinedJobItem> = [
             })
           )
         }
+        */
 
         return h('div', { class: 'flex gap-1 flex-wrap' }, buttons)
       }
@@ -816,8 +820,14 @@ async function downloadOriginalFile(jobId: string, originalFileName?: string) {
   }
 }
 
-// Download output file
+// Download output file - DISABLED (Backend doesn't support this yet)
+// TODO: Enable when backend adds download-result endpoint
 async function downloadOutputFile(outputFile: string | null) {
+  message.warning('Download result file is not supported yet. Only original files can be downloaded.')
+  return
+  
+  /* 
+  // This code will work when backend supports downloading result/output files
   if (outputFile) {
     try {
       // Extract jobId from outputFile if needed, or use a different approach
@@ -844,6 +854,7 @@ async function downloadOutputFile(outputFile: string | null) {
       message.error('Failed to download output file')
     }
   }
+  */
 }
 
 // Load recent uploads from API
