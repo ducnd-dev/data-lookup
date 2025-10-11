@@ -436,13 +436,13 @@ const totalItems = computed(() => {
 // Pagination handlers
 function handlePageChange(page: number) {
   currentPage.value = page
-  fetchJobs() // Refetch jobs with new page
+  // fetchJobs() will be called by watcher
 }
 
 function handlePageSizeChange(size: number) {
   pageSize.value = size
   currentPage.value = 1 // Reset to first page
-  fetchJobs() // Refetch jobs with new page size
+  // fetchJobs() will be called by watcher
 }
 
 // Combined columns for unified table
@@ -921,9 +921,15 @@ function downloadExampleFile() {
   message.success('Example file downloaded successfully')
 }
 
-// Watch for pagination changes to refetch data
+// Watch for pagination changes to refetch data (with debounce to avoid multiple calls)
+let fetchTimeout: number | null = null
 watch([currentPage, pageSize], () => {
-  fetchJobs()
+  if (fetchTimeout) {
+    clearTimeout(fetchTimeout)
+  }
+  fetchTimeout = setTimeout(() => {
+    fetchJobs()
+  }, 100) // 100ms debounce
 })
 
 // Initialize data when component mounts

@@ -74,6 +74,15 @@ export class LookupService {
         skip,
         take: actualLimit,
         orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          uid: true,
+          phone: true,
+          name: true,
+          address: true,
+          createdAt: true,
+          updatedAt: true,
+        },
       }),
       this.prisma.lookupData.count({ where: whereClause }),
     ]);
@@ -235,6 +244,15 @@ export class LookupService {
         skip,
         take: actualLimit,
         orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          uid: true,
+          phone: true,
+          name: true,
+          address: true,
+          createdAt: true,
+          updatedAt: true,
+        },
       }),
       this.prisma.lookupData.count({ where: whereClause }),
     ]);
@@ -280,6 +298,15 @@ export class LookupService {
         skip,
         take: actualLimit,
         orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          uid: true,
+          phone: true,
+          name: true,
+          address: true,
+          createdAt: true,
+          updatedAt: true,
+        },
       }),
       this.prisma.lookupData.count({ where: whereClause }),
     ]);
@@ -342,6 +369,15 @@ export class LookupService {
     const results = await this.prisma.lookupData.findMany({
       where: whereClause,
       take: 10000, // Limit to prevent memory issues
+      select: {
+        id: true,
+        uid: true,
+        phone: true,
+        name: true,
+        address: true,
+        createdAt: true,
+        updatedAt: true,
+      },
     });
 
     return {
@@ -379,6 +415,15 @@ export class LookupService {
     const results = await this.prisma.lookupData.findMany({
       where: whereClause,
       take: 10000, // Limit to prevent memory issues
+      select: {
+        id: true,
+        uid: true,
+        phone: true,
+        name: true,
+        address: true,
+        createdAt: true,
+        updatedAt: true,
+      },
     });
 
     return {

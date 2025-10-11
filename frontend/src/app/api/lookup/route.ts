@@ -4,6 +4,7 @@ interface BackendLookupResult {
   id: string
   uid: string
   phone: string
+  name: string
   address: string
   createdAt: string
   updatedAt: string
@@ -58,6 +59,7 @@ export async function POST(request: NextRequest) {
           uid: uid,
           phone: found?.phone || null,
           address: found?.address || null,
+          name: found?.name || null,
           found: !!found
         }
       })

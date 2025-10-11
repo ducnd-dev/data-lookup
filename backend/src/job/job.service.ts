@@ -9,7 +9,11 @@ export class JobService {
 
   async findAll(query: any = {}) {
     const { page = 1, limit = 10, status, jobType, search, sortBy = 'createdAt', sortOrder = 'desc' } = query;
-    const skip = (page - 1) * limit;
+    
+    // Convert to numbers to ensure proper pagination
+    const pageNum = parseInt(page) || 1;
+    const limitNum = parseInt(limit) || 10;
+    const skip = (pageNum - 1) * limitNum;
 
     const where: any = {};
     
@@ -32,7 +36,7 @@ export class JobService {
       this.prisma.jobStatus.findMany({
         where,
         skip,
-        take: Number(limit),
+        take: limitNum,
         orderBy: { [sortBy]: sortOrder }
       }),
       this.prisma.jobStatus.count({ where })
@@ -69,9 +73,9 @@ export class JobService {
         updatedAt: job.updatedAt.toISOString()
       })),
       total,
-      page: Number(page),
-      limit: Number(limit),
-      totalPages: Math.ceil(total / limit)
+      page: pageNum,
+      limit: limitNum,
+      totalPages: Math.ceil(total / limitNum)
     };
   }
 
